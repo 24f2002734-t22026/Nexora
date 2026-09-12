@@ -5,3 +5,22 @@ dist/
 .env.local
 *.tsbuildinfo
 
+# Python Virtual Environments & Cache
+venv/
+.venv/
+*/venv/
+*/.venv/
+__pycache__/
+*/__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# Test artifacts & OS files
+test_artifacts/
+*/test_artifacts/
+.DS_Store
+*.pdf
+
+
