@@ -1,0 +1,33 @@
+{
+  "name": "nexora",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "tsc -b --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
+    "@vitejs/plugin-react": "latest",
+    "axios": "latest",
+    "firebase": "latest",
+    "lucide-react": "latest",
+    "mammoth": "^1.12.2",
+    "motion": "latest",
+    "pdfjs-dist": "^3.11.174",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-dropzone": "latest",
+    "react-router-dom": "latest",
+    "recharts": "latest",
+    "sonner": "latest"
+  },
+  "devDependencies": {
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "typescript": "latest",
+    "vite": "latest"
+  }
+}

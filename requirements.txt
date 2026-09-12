@@ -1,0 +1,24 @@
+# Nexora Core Backend & AI Service Requirements
+
+# 1. Speech-to-Text (Moonshine Base STT & WebSocket)
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+python-multipart>=0.0.9
+useful-moonshine>=0.0.7
+soundfile>=0.12.1
+numpy>=1.24.0
+pydub>=0.25.1
+torch>=2.2.0
+torchaudio>=2.2.0
+websockets>=12.0
+python-dotenv>=1.0.0
+
+# 2. Resume Integrity & Fraud Detection Engine
+pymupdf>=1.24.0
+pdfplumber>=0.11.0
+pillow>=10.2.0
+
+# 3. Database & Cloud Storage
+supabase>=2.3.0
+pydantic>=2.6.0
+requests>=2.31.0

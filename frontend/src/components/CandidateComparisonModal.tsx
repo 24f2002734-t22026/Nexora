@@ -26,9 +26,11 @@ export function CandidateComparisonModal({
   const onlyInB = b.matchedSkills.filter((s) => !a.matchedSkills.includes(s));
 
   // Determine synthesis comparison explanation
-  const higher = a.finalScore >= b.finalScore ? a : b;
-  const lower = a.finalScore >= b.finalScore ? b : a;
-  const scoreDiff = (higher.finalScore - lower.finalScore).toFixed(1);
+  const scoreA = a.finalScore ?? 0;
+  const scoreB = b.finalScore ?? 0;
+  const higher = scoreA >= scoreB ? a : b;
+  const lower = scoreA >= scoreB ? b : a;
+  const scoreDiff = (Math.abs(scoreA - scoreB)).toFixed(1);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -56,7 +58,7 @@ export function CandidateComparisonModal({
             <b>Evaluation Rationale:</b>
             <p>
               <b>{higher.name}</b> ranks above <b>{lower.name}</b> by <b>+{scoreDiff}%</b> overall.
-              {higher.semanticScore > lower.semanticScore &&
+              {(higher.semanticScore ?? 0) > (lower.semanticScore ?? 0) &&
                 ` ${higher.name} shows stronger contextual semantic alignment (${higher.semanticScore}% vs ${lower.semanticScore}%).`}
               {onlyInA.length > 0 && ` ${a.name} uniquely demonstrates evidence in ${onlyInA.join(', ')}.`}
               {onlyInB.length > 0 && ` ${b.name} uniquely demonstrates evidence in ${onlyInB.join(', ')}.`}
@@ -83,7 +85,7 @@ export function CandidateComparisonModal({
 
               <div className="compare-score-box">
                 <span className="box-sub">Final Match Score</span>
-                <b className="compare-score-num">{a.finalScore.toFixed(1)}%</b>
+                <b className="compare-score-num">{a.finalScore !== undefined ? `${a.finalScore.toFixed(1)}%` : '—'}</b>
               </div>
 
               <div className="compare-metric-table">
@@ -188,7 +190,7 @@ export function CandidateComparisonModal({
 
               <div className="compare-score-box">
                 <span className="box-sub">Final Match Score</span>
-                <b className="compare-score-num">{b.finalScore.toFixed(1)}%</b>
+                <b className="compare-score-num">{b.finalScore !== undefined ? `${b.finalScore.toFixed(1)}%` : '—'}</b>
               </div>
 
               <div className="compare-metric-table">

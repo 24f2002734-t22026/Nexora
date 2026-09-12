@@ -233,7 +233,7 @@ export function HiringSimulator({ isOpen, onClose, baseCandidates }: HiringSimul
                       )}
                     </div>
                     <div className="sim-score text-right">
-                      <b>{c.finalScore.toFixed(1)}%</b>
+                      <b>{c.finalScore !== undefined ? `${c.finalScore.toFixed(1)}%` : '—'}</b>
                     </div>
                     <div className="text-right">
                       <button

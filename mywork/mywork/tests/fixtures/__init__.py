@@ -1,0 +1,1 @@
+"""Realistic in-memory fixtures for deterministic Nexa tool tests."""
