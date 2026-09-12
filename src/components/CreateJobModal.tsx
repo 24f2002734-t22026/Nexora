@@ -394,7 +394,7 @@ Requirements & Qualifications:
             </div>
 
             {/* 3-Column Attributes Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+            <div style={{ gridTemplateColumns: '1fr 1fr 1fr', display: 'grid', gap: '12px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px' }}>
                   Department
