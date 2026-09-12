@@ -1,22 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Briefcase, 
   Search, 
   Plus, 
-  MoreVertical, 
   Users, 
   FileText, 
   Trash2, 
-  UploadCloud, 
   ChevronRight, 
-  Building2, 
   MapPin, 
+  Building2, 
   Clock, 
-  X, 
-  AlertCircle,
-  ExternalLink,
-  Sparkles,
-  Layers
+  X,
+  Eye
 } from 'lucide-react';
 import type { JobOpening } from '../types';
 import { store } from '../services/store';
@@ -24,12 +19,10 @@ import { CreateJobModal } from './CreateJobModal';
 
 interface JobOpeningsTableProps {
   onSelectJob: (job: JobOpening) => void;
-  onOpenUploadForJob?: (job: JobOpening) => void;
 }
 
 export const JobOpeningsTable: React.FC<JobOpeningsTableProps> = ({ 
-  onSelectJob,
-  onOpenUploadForJob
+  onSelectJob
 }) => {
   const [jobs, setJobs] = useState<JobOpening[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,8 +30,6 @@ export const JobOpeningsTable: React.FC<JobOpeningsTableProps> = ({
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewingJdJob, setViewingJdJob] = useState<JobOpening | null>(null);
-  const [activeMenuJobId, setActiveMenuJobId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -56,21 +47,9 @@ export const JobOpeningsTable: React.FC<JobOpeningsTableProps> = ({
     fetchJobs();
   }, []);
 
-  // Close three-dot menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setActiveMenuJobId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   const handleDeleteJob = async (job: JobOpening, e: React.MouseEvent) => {
     e.stopPropagation();
-    setActiveMenuJobId(null);
-    if (window.confirm(`Are you sure you want to delete the job opening "${job.title}" and its candidates?`)) {
+    if (window.confirm(`Are you sure you want to delete the job opening "${job.title}" and all its candidate records?`)) {
       await store.deleteJobOpening(job.id);
       fetchJobs();
     }
@@ -92,368 +71,277 @@ export const JobOpeningsTable: React.FC<JobOpeningsTableProps> = ({
     return matchesQuery && matchesStatus;
   });
 
-  const totalCandidatesCount = jobs.reduce((acc, j) => acc + (j.candidateCount || 0), 0);
-
   return (
-    <div className="space-y-6">
-      {/* Top Banner / Metrics Overview */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 p-6 rounded-2xl border border-slate-800 shadow-xl">
+    <div className="candidates-view">
+      {/* Header aligned with Candidates Section */}
+      <div className="candidates-header">
         <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5" />
-              Recruiter Pipeline
-            </span>
-            <span className="text-xs text-slate-400">Analysis & Resume Screening</span>
-          </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Job Openings</h1>
-          <p className="text-xs text-slate-400 mt-1 max-w-xl">
-            Select a job opening to inspect candidate resumes, review verification integrity, and track applications.
+          <span className="eyebrow">RECRUITER PIPELINE</span>
+          <h1>Job Openings</h1>
+          <p>
+            Select a job opening to inspect candidate resumes, review verification integrity, and screen applicants.
           </p>
         </div>
 
-        {/* Stats Badges + CTA */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-4 bg-slate-950/80 px-4 py-2.5 rounded-xl border border-slate-800">
-            <div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Total Roles</p>
-              <p className="text-lg font-bold text-white">{jobs.length}</p>
-            </div>
-            <div className="w-px h-8 bg-slate-800" />
-            <div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Total Applicants</p>
-              <p className="text-lg font-bold text-blue-400">{totalCandidatesCount}</p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <Plus className="w-4 h-4" />
-            Create Job Opening
-          </button>
-        </div>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => setShowCreateModal(true)}
+        >
+          <Plus size={16} /> Create Job Opening
+        </button>
       </div>
 
-      {/* Search and Filters Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900/90 p-3 rounded-xl border border-slate-800">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+      {/* Filter & Search Toolbar (Matches Candidates Section) */}
+      <div className="filter-toolbar-card">
+        <div className="search-input-wrap">
+          <Search size={16} />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by title, skill, department..."
-            className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+            placeholder="Search by job title, skill, department, or location..."
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-          <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
-            <button
-              onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1 rounded-md transition-colors ${
-                statusFilter === 'all' ? 'bg-blue-600 text-white font-medium' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              All Roles ({jobs.length})
-            </button>
-            <button
-              onClick={() => setStatusFilter('open')}
-              className={`px-3 py-1 rounded-md transition-colors ${
-                statusFilter === 'open' ? 'bg-blue-600 text-white font-medium' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Open ({jobs.filter((j) => j.status === 'open').length})
-            </button>
-          </div>
+        <div className="dropdown-filters-wrap">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            className="filter-select"
+            aria-label="Filter by Job Status"
+          >
+            <option value="all">All Roles ({jobs.length})</option>
+            <option value="open">Open Roles ({jobs.filter((j) => j.status === 'open').length})</option>
+            <option value="closed">Closed Roles ({jobs.filter((j) => j.status === 'closed').length})</option>
+          </select>
         </div>
       </div>
 
-      {/* Main Tabular Job Openings Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-950/90 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                <th className="py-4 px-4 w-12 text-center">#</th>
-                <th className="py-4 px-6 min-w-[280px]">Job Title</th>
-                <th className="py-4 px-6 min-w-[340px]">Job Description</th>
-                <th className="py-4 px-6 w-36 text-center">Candidates</th>
-                <th className="py-4 px-6 w-24 text-right">Actions</th>
+      {/* Tabular Job Openings Table (Exact format as Candidates Table) */}
+      <div className="rankings-table-wrap">
+        <table className="rankings-table">
+          <thead>
+            <tr>
+              <th scope="col" style={{ width: 50 }} className="text-center">#</th>
+              <th scope="col" style={{ minWidth: 260 }}>Job Title & Details</th>
+              <th scope="col" style={{ minWidth: 320 }}>Job Description</th>
+              <th scope="col" className="text-center" style={{ width: 140 }}>Candidates</th>
+              <th scope="col" className="text-right" style={{ width: 160 }}>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={5} className="text-center py-8">
+                  <div style={{ padding: '24px', color: 'var(--text-muted)' }}>
+                    Loading job openings...
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-xs">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400">
-                    <div className="flex flex-col items-center justify-center">
-                      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-2" />
-                      <p>Loading job openings...</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : filteredJobs.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-16 text-center text-slate-400">
-                    <Briefcase className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-                    <p className="text-sm font-semibold text-slate-300">No Job Openings Found</p>
-                    <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                      {searchQuery
-                        ? 'Try adjusting your search query or clear filters.'
-                        : 'Get started by creating your first job opening to screen resumes.'}
-                    </p>
-                    {!searchQuery && (
-                      <button
-                        onClick={() => setShowCreateModal(true)}
-                        className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-500 transition-colors"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        Create Job Opening
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ) : (
-                filteredJobs.map((job, idx) => {
-                  const serialNumber = idx + 1;
-                  const isMenuOpen = activeMenuJobId === job.id;
+            ) : filteredJobs.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="text-center py-8">
+                  <div style={{ padding: '32px 16px', textAlign: 'center' }}>
+                    <Briefcase size={28} style={{ color: 'var(--text-light)', margin: '0 auto 8px' }} />
+                    <b style={{ display: 'block', fontSize: '14px', color: 'var(--text-primary)' }}>
+                      No Job Openings Found
+                    </b>
+                    <small style={{ color: 'var(--text-muted)' }}>
+                      {searchQuery ? 'Try clearing your search filters.' : 'Create a job opening to start receiving and screening resumes.'}
+                    </small>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              filteredJobs.map((job, idx) => {
+                const serialNumber = idx + 1;
 
-                  return (
-                    <tr
-                      key={job.id}
-                      onClick={() => onSelectJob(job)}
-                      className="group hover:bg-slate-800/50 transition-colors cursor-pointer"
-                    >
-                      {/* 1. Dynamic Serial Number */}
-                      <td className="py-4 px-4 text-center font-mono font-medium text-slate-400 group-hover:text-slate-200">
-                        {serialNumber}
-                      </td>
+                return (
+                  <tr 
+                    key={job.id} 
+                    className="candidate-table-row"
+                    onClick={() => onSelectJob(job)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {/* 1. Dynamic Serial Number */}
+                    <td className="rank-cell text-center">
+                      <span className="rank-pill">#{serialNumber}</span>
+                    </td>
 
-                      {/* 2. Job Title & Meta */}
-                      <td className="py-4 px-6">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-white group-hover:text-blue-400 transition-colors text-sm">
-                              {job.title}
-                            </span>
-                            <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                              {job.status.toUpperCase()}
-                            </span>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-400 text-[11px]">
-                            {job.department && (
-                              <span className="flex items-center gap-1">
-                                <Building2 className="w-3 h-3 text-slate-500" />
-                                {job.department}
-                              </span>
-                            )}
-                            {job.location && (
-                              <span className="flex items-center gap-1">
-                                <MapPin className="w-3 h-3 text-slate-500" />
-                                {job.location}
-                              </span>
-                            )}
-                            {job.employmentType && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3 text-slate-500" />
-                                {job.employmentType}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Skill Tags */}
-                          {job.skillsRequired && job.skillsRequired.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {job.skillsRequired.slice(0, 4).map((skill, sIdx) => (
-                                <span
-                                  key={sIdx}
-                                  className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[10px] text-slate-300 font-medium"
-                                >
-                                  {skill}
-                                </span>
-                              ))}
-                              {job.skillsRequired.length > 4 && (
-                                <span className="text-[10px] text-slate-500 self-center">
-                                  +{job.skillsRequired.length - 4} more
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* 3. Job Description Snippet + Read More */}
-                      <td className="py-4 px-6">
-                        <div className="max-w-md">
-                          <p className="text-slate-300 line-clamp-2 text-xs leading-relaxed">
-                            {job.description}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setViewingJdJob(job);
-                            }}
-                            className="text-[11px] text-blue-400 hover:text-blue-300 font-medium mt-1 inline-flex items-center gap-0.5 hover:underline"
-                          >
-                            Read Full Description
-                            <ChevronRight className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </td>
-
-                      {/* 4. Candidate Count Badge */}
-                      <td className="py-4 px-6 text-center">
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-sm">
-                          <Users className="w-3.5 h-3.5" />
-                          <span className="font-bold text-xs">
-                            {job.candidateCount || 0}
-                          </span>
-                          <span className="text-[10px] opacity-80">
-                            {job.candidateCount === 1 ? 'Candidate' : 'Candidates'}
+                    {/* 2. Job Title & Meta */}
+                    <td>
+                      <div className="candidate-cell-info">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                          <b style={{ fontSize: '13px' }}>{job.title}</b>
+                          <span className="status-badge-inline status-strong" style={{ fontSize: '10px' }}>
+                            {job.status.toUpperCase()}
                           </span>
                         </div>
-                      </td>
+                        <small>
+                          {job.department && `${job.department} · `}
+                          {job.location && `${job.location} · `}
+                          {job.employmentType || 'Full-time'}
+                        </small>
 
-                      {/* 5. Actions Dropdown Menu */}
-                      <td className="py-4 px-6 text-right">
-                        <div className="relative inline-block text-left" ref={isMenuOpen ? menuRef : null}>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveMenuJobId(isMenuOpen ? null : job.id);
-                            }}
-                            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
-                            title="Actions"
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
+                        {/* Skill Tags */}
+                        {job.skillsRequired && job.skillsRequired.length > 0 && (
+                          <div className="skills-inline-wrap" style={{ marginTop: '6px' }}>
+                            {job.skillsRequired.slice(0, 4).map((skill, sIdx) => (
+                              <span key={sIdx} className="skill-tag">
+                                {skill}
+                              </span>
+                            ))}
+                            {job.skillsRequired.length > 4 && (
+                              <small className="more-skills">+{job.skillsRequired.length - 4}</small>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </td>
 
-                          {isMenuOpen && (
-                            <div className="absolute right-0 mt-1 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1.5 z-40 animate-fadeIn text-slate-200">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMenuJobId(null);
-                                  onSelectJob(job);
-                                }}
-                                className="w-full text-left px-3.5 py-2 text-xs flex items-center gap-2.5 hover:bg-slate-800 hover:text-white transition-colors"
-                              >
-                                <Users className="w-4 h-4 text-blue-400" />
-                                View Candidates ({job.candidateCount || 0})
-                              </button>
+                    {/* 3. Job Description Snippet + Read More */}
+                    <td>
+                      <div style={{ maxWidth: '420px', lineHeight: '1.45' }}>
+                        <p style={{ 
+                          fontSize: '12px', 
+                          color: 'var(--text-secondary)',
+                          margin: 0,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden'
+                        }}>
+                          {job.description}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewingJdJob(job);
+                          }}
+                          className="btn-text"
+                          style={{
+                            fontSize: '11px',
+                            color: 'var(--primary)',
+                            padding: 0,
+                            marginTop: '4px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '2px',
+                            fontWeight: 600,
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Read Details <ChevronRight size={12} />
+                        </button>
+                      </div>
+                    </td>
 
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMenuJobId(null);
-                                  setViewingJdJob(job);
-                                }}
-                                className="w-full text-left px-3.5 py-2 text-xs flex items-center gap-2.5 hover:bg-slate-800 hover:text-white transition-colors"
-                              >
-                                <FileText className="w-4 h-4 text-indigo-400" />
-                                View Full JD
-                              </button>
+                    {/* 4. Candidate Count Badge */}
+                    <td className="text-center">
+                      <span className="status-badge-inline status-strong" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px' }}>
+                        <Users size={12} />
+                        <b>{job.candidateCount || 0}</b>
+                        <span>{job.candidateCount === 1 ? 'Candidate' : 'Candidates'}</span>
+                      </span>
+                    </td>
 
-                              {onOpenUploadForJob && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveMenuJobId(null);
-                                    onOpenUploadForJob(job);
-                                  }}
-                                  className="w-full text-left px-3.5 py-2 text-xs flex items-center gap-2.5 hover:bg-slate-800 hover:text-white transition-colors"
-                                >
-                                  <UploadCloud className="w-4 h-4 text-emerald-400" />
-                                  Upload Resumes
-                                </button>
-                              )}
+                    {/* 5. Action: View Candidates & Delete */}
+                    <td className="text-right">
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectJob(job);
+                          }}
+                          title="View Candidates"
+                        >
+                          <Eye size={13} /> View Candidates
+                        </button>
 
-                              <div className="my-1 border-t border-slate-800" />
-
-                              <button
-                                type="button"
-                                onClick={(e) => handleDeleteJob(job, e)}
-                                className="w-full text-left px-3.5 py-2 text-xs flex items-center gap-2.5 text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                Delete Opening
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={(e) => handleDeleteJob(job, e)}
+                          title="Delete Opening"
+                          style={{ color: 'var(--danger-text)', padding: '6px 8px' }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* Full JD Detail Modal / Popover */}
+      {/* Full JD Modal using standard modal design system */}
       {viewingJdJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden text-slate-100 max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/80">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-white">{viewingJdJob.title}</h3>
-                  <p className="text-xs text-slate-400">
-                    {viewingJdJob.department} • {viewingJdJob.location} • {viewingJdJob.employmentType}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setViewingJdJob(null)}
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-5 text-xs text-slate-300">
+        <div className="modal-backdrop" onClick={() => setViewingJdJob(null)}>
+          <div 
+            className="modal-card" 
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '640px', maxHeight: '85vh', overflowY: 'auto' }}
+            role="dialog"
+            aria-modal="true"
+          >
+            <header className="modal-header">
               <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Role Overview</h4>
-                <p className="text-slate-200 leading-relaxed bg-slate-950/50 p-3.5 rounded-xl border border-slate-800 whitespace-pre-line text-sm">
+                <span className="modal-eyebrow">JOB SPECIFICATION</span>
+                <h2>{viewingJdJob.title}</h2>
+                <p>
+                  {viewingJdJob.department} · {viewingJdJob.location} · {viewingJdJob.employmentType}
+                </p>
+              </div>
+              <button 
+                type="button" 
+                className="close-btn" 
+                onClick={() => setViewingJdJob(null)}
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </header>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '12px' }}>
+              <div>
+                <span className="summary-title">Role Overview</span>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6', whiteSpace: 'pre-line' }}>
                   {viewingJdJob.description}
                 </p>
               </div>
 
               {viewingJdJob.requirements && (
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Requirements</h4>
-                  <div className="bg-slate-950/50 p-3.5 rounded-xl border border-slate-800 whitespace-pre-line text-slate-200 leading-relaxed">
+                  <span className="summary-title">Requirements & Qualifications</span>
+                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.6', whiteSpace: 'pre-line' }}>
                     {viewingJdJob.requirements}
-                  </div>
+                  </p>
                 </div>
               )}
 
               {viewingJdJob.responsibilities && (
                 <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Responsibilities</h4>
-                  <div className="bg-slate-950/50 p-3.5 rounded-xl border border-slate-800 whitespace-pre-line text-slate-200 leading-relaxed">
+                  <span className="summary-title">Responsibilities</span>
+                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.6', whiteSpace: 'pre-line' }}>
                     {viewingJdJob.responsibilities}
-                  </div>
+                  </p>
                 </div>
               )}
 
               <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Required Skills</h4>
-                <div className="flex flex-wrap gap-1.5">
+                <span className="summary-title">Required Core Skills</span>
+                <div className="skills-inline-wrap">
                   {viewingJdJob.skillsRequired?.map((s, sIdx) => (
-                    <span key={sIdx} className="px-2.5 py-1 bg-blue-500/10 border border-blue-500/20 rounded-md text-blue-300 font-medium">
+                    <span key={sIdx} className="skill-tag highlighted">
                       {s}
                     </span>
                   ))}
@@ -461,27 +349,28 @@ export const JobOpeningsTable: React.FC<JobOpeningsTableProps> = ({
               </div>
             </div>
 
-            <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between">
-              <span className="text-xs text-slate-400">
-                Created: {new Date(viewingJdJob.createdAt).toLocaleDateString()}
-              </span>
-              <div className="flex items-center gap-2">
+            <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <small style={{ color: 'var(--text-muted)' }}>
+                Created {new Date(viewingJdJob.createdAt).toLocaleDateString()}
+              </small>
+              <div style={{ display: 'flex', gap: '8px' }}>
                 <button
+                  type="button"
+                  className="btn btn-secondary"
                   onClick={() => setViewingJdJob(null)}
-                  className="px-3.5 py-1.5 text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
                 >
                   Close
                 </button>
                 <button
+                  type="button"
+                  className="btn btn-primary"
                   onClick={() => {
                     const target = viewingJdJob;
                     setViewingJdJob(null);
                     onSelectJob(target);
                   }}
-                  className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors flex items-center gap-1.5"
                 >
-                  <Users className="w-3.5 h-3.5" />
-                  View {targetCandidatesText(viewingJdJob.candidateCount)}
+                  <Users size={14} /> View Candidates ({viewingJdJob.candidateCount || 0})
                 </button>
               </div>
             </div>
@@ -499,7 +388,3 @@ export const JobOpeningsTable: React.FC<JobOpeningsTableProps> = ({
     </div>
   );
 };
-
-function targetCandidatesText(count: number): string {
-  return `${count || 0} Candidates`;
-}

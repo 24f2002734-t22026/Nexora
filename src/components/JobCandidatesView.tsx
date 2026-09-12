@@ -1,26 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, 
-  UploadCloud, 
+  Upload, 
   Search, 
   FileText, 
   Users, 
   Eye, 
   Download, 
   CheckCircle2, 
-  AlertCircle, 
+  AlertTriangle, 
   ShieldAlert, 
-  Filter, 
+  ShieldCheck, 
   X, 
   Sparkles, 
   Clock, 
-  Building2, 
-  MapPin, 
   Loader2,
-  ChevronRight,
-  UserCheck
+  ChevronRight
 } from 'lucide-react';
-import type { JobOpening, Candidate, ResumeDocument } from '../types';
+import type { JobOpening, Candidate } from '../types';
 import { store } from '../services/store';
 import { ResumeViewerModal } from './ResumeViewerModal';
 
@@ -161,404 +158,322 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
   });
 
   return (
-    <div className="space-y-6">
-      {/* Navigation Breadcrumb */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Back to Job Openings
-          </button>
-          <span className="text-slate-600">/</span>
-          <span className="text-slate-300 font-medium truncate max-w-xs">{job.title}</span>
-        </div>
+    <div className="candidates-view">
+      {/* Top Breadcrumb & Actions Bar */}
+      <div className="detail-top-bar" style={{ marginBottom: '16px' }}>
+        <button type="button" className="back-link-btn" onClick={onBack}>
+          <ArrowLeft size={16} /> Back to Job Openings
+        </button>
 
         <button
+          type="button"
+          className="btn btn-primary"
           onClick={() => setShowUploadModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
         >
-          <UploadCloud className="w-4 h-4" />
-          Upload Candidate Resume
+          <Upload size={16} /> Upload Candidate Resume
         </button>
       </div>
 
-      {/* Job Info Banner */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                {job.employmentType || 'Full-time'}
-              </span>
-              <span className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                {job.status.toUpperCase()}
-              </span>
-            </div>
-            <h2 className="text-xl font-bold text-white tracking-tight">{job.title}</h2>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
-              {job.department && (
-                <span className="flex items-center gap-1">
-                  <Building2 className="w-3.5 h-3.5 text-slate-500" />
-                  {job.department}
-                </span>
-              )}
-              {job.location && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-slate-500" />
-                  {job.location}
-                </span>
-              )}
-              <span className="flex items-center gap-1">
-                <Users className="w-3.5 h-3.5 text-slate-500" />
-                {candidates.length} {candidates.length === 1 ? 'Candidate' : 'Candidates'} Applied
-              </span>
-            </div>
-          </div>
-
-          {/* Key Required Skills Badges */}
-          {job.skillsRequired && job.skillsRequired.length > 0 && (
-            <div className="lg:text-right">
-              <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider block mb-1.5">
-                Required Core Stack
-              </span>
-              <div className="flex flex-wrap gap-1.5 lg:justify-end">
-                {job.skillsRequired.map((s, idx) => (
-                  <span
-                    key={idx}
-                    className="px-2 py-0.5 bg-slate-800 text-blue-300 border border-slate-700/80 rounded text-xs font-medium"
-                  >
-                    {s}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+      {/* Role Overview Header (Aligned with Candidates section) */}
+      <div className="candidates-header" style={{ marginBottom: '20px' }}>
+        <div>
+          <span className="eyebrow">APPLICANTS FOR ROLE</span>
+          <h1>{job.title}</h1>
+          <p>
+            {job.department && `${job.department} · `}
+            {job.location && `${job.location} · `}
+            {job.employmentType || 'Full-time'} · <b>{candidates.length}</b> total applicants
+          </p>
         </div>
       </div>
 
-      {/* Candidate Filters & Search */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900/90 p-3 rounded-xl border border-slate-800">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+      {/* Filter & Search Toolbar */}
+      <div className="filter-toolbar-card">
+        <div className="search-input-wrap">
+          <Search size={16} />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search candidates by name, email, skills..."
-            className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+            placeholder="Search applicants by name, email, skills..."
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto text-xs">
-          <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800">
-            <button
-              onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1 rounded-md transition-colors ${
-                statusFilter === 'all' ? 'bg-blue-600 text-white font-medium' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              All ({candidates.length})
-            </button>
-            <button
-              onClick={() => setStatusFilter('pending')}
-              className={`px-3 py-1 rounded-md transition-colors ${
-                statusFilter === 'pending' ? 'bg-blue-600 text-white font-medium' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Pending ({candidates.filter((c) => c.analysisPending || c.finalScore === undefined).length})
-            </button>
-            <button
-              onClick={() => setStatusFilter('flagged')}
-              className={`px-3 py-1 rounded-md transition-colors ${
-                statusFilter === 'flagged' ? 'bg-blue-600 text-white font-medium' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Flagged ({candidates.filter((c) => c.verificationAlerts && c.verificationAlerts.length > 0).length})
-            </button>
-          </div>
+        <div className="dropdown-filters-wrap">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            className="filter-select"
+            aria-label="Filter applicants"
+          >
+            <option value="all">All Applicants ({candidates.length})</option>
+            <option value="pending">Pending Analysis ({candidates.filter((c) => c.analysisPending || c.finalScore === undefined).length})</option>
+            <option value="flagged">Verification Flagged ({candidates.filter((c) => c.verificationAlerts && c.verificationAlerts.length > 0).length})</option>
+            <option value="verified">Verified Clear ({candidates.filter((c) => !c.verificationAlerts || c.verificationAlerts.length === 0).length})</option>
+          </select>
         </div>
       </div>
 
-      {/* Candidates Tabular View */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-950/90 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                <th className="py-4 px-4 w-12 text-center">#</th>
-                <th className="py-4 px-6 min-w-[220px]">Candidate</th>
-                <th className="py-4 px-6 min-w-[200px]">Uploaded Resume</th>
-                <th className="py-4 px-6 w-36 text-center">Match Score</th>
-                <th className="py-4 px-6 w-44 text-center">Integrity Scan</th>
-                <th className="py-4 px-6 w-36 text-right">Actions</th>
+      {/* Candidates Table (Exact layout as Candidates section) */}
+      <div className="rankings-table-wrap">
+        <table className="rankings-table">
+          <thead>
+            <tr>
+              <th scope="col" style={{ width: 50 }} className="text-center">#</th>
+              <th scope="col" style={{ minWidth: 240 }}>Candidate</th>
+              <th scope="col" style={{ minWidth: 200 }}>Uploaded Resume</th>
+              <th scope="col" className="text-center" style={{ width: 140 }}>Match Score</th>
+              <th scope="col" className="text-center" style={{ width: 160 }}>Verification</th>
+              <th scope="col" className="text-right" style={{ width: 180 }}>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="text-center py-8">
+                  <div style={{ padding: '24px', color: 'var(--text-muted)' }}>
+                    Loading candidate resumes...
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-xs">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
-                    <div className="flex flex-col items-center justify-center">
-                      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-2" />
-                      <p>Loading candidate resumes...</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : filteredCandidates.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-16 text-center text-slate-400">
-                    <Users className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-                    <p className="text-sm font-semibold text-slate-300">No Candidates Found</p>
-                    <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                      {searchQuery
-                        ? 'No candidates match your current filter criteria.'
-                        : 'Upload resumes (PDF or DOCX) to screen applicants for this role.'}
-                    </p>
-                    {!searchQuery && (
-                      <button
-                        onClick={() => setShowUploadModal(true)}
-                        className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-500 transition-colors"
+            ) : filteredCandidates.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="text-center py-8">
+                  <div style={{ padding: '32px 16px', textAlign: 'center' }}>
+                    <Users size={28} style={{ color: 'var(--text-light)', margin: '0 auto 8px' }} />
+                    <b style={{ display: 'block', fontSize: '14px', color: 'var(--text-primary)' }}>
+                      No Candidates Found
+                    </b>
+                    <small style={{ color: 'var(--text-muted)' }}>
+                      {searchQuery ? 'Try clearing your search query.' : 'Click "Upload Candidate Resume" above to attach resumes to this job.'}
+                    </small>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              filteredCandidates.map((candidate, idx) => {
+                const serialNumber = idx + 1;
+                const isPending = candidate.analysisPending || candidate.finalScore === undefined;
+                const hasFraudAlerts = candidate.verificationAlerts && candidate.verificationAlerts.length > 0;
+                const resume = candidate.resume;
+                const isDocx = resume?.fileType === 'docx' || resume?.fileName?.endsWith('.docx');
+
+                return (
+                  <tr key={candidate.id} className="candidate-table-row">
+                    {/* 1. Dynamic Serial Number */}
+                    <td className="rank-cell text-center">
+                      <span className="rank-pill">#{serialNumber}</span>
+                    </td>
+
+                    {/* 2. Candidate Name & Contact */}
+                    <td>
+                      <div 
+                        className="candidate-cell-info"
+                        onClick={() => onSelectCandidate(candidate)}
+                        style={{ cursor: 'pointer' }}
                       >
-                        <UploadCloud className="w-3.5 h-3.5" />
-                        Upload First Resume
+                        <b style={{ fontSize: '13px' }}>{candidate.name}</b>
+                        <small>{candidate.email}</small>
+                        <small style={{ color: 'var(--text-light)', marginTop: '2px' }}>
+                          {candidate.location} {candidate.phone && `· ${candidate.phone}`}
+                        </small>
+                      </div>
+                    </td>
+
+                    {/* 3. Uploaded Resume Badge & Click to view */}
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => setViewingResumeCandidate(candidate)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textAlign: 'left', maxWidth: '240px' }}
+                        title="Open Document in Viewer"
+                      >
+                        <FileText size={14} style={{ color: isDocx ? '#6366f1' : '#e11d48', flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px' }}>
+                          {resume?.fileName || `${candidate.name}_Resume.pdf`}
+                        </span>
+                        <Eye size={12} style={{ marginLeft: 'auto', opacity: 0.6 }} />
                       </button>
-                    )}
-                  </td>
-                </tr>
-              ) : (
-                filteredCandidates.map((candidate, idx) => {
-                  const serialNumber = idx + 1;
-                  const isPending = candidate.analysisPending || candidate.finalScore === undefined;
-                  const hasFraudAlerts = candidate.verificationAlerts && candidate.verificationAlerts.length > 0;
-                  const resume = candidate.resume;
-                  const isDocx = resume?.fileType === 'docx' || resume?.fileName?.endsWith('.docx');
+                    </td>
 
-                  return (
-                    <tr
-                      key={candidate.id}
-                      className="group hover:bg-slate-800/50 transition-colors"
-                    >
-                      {/* # Dynamic Serial Number */}
-                      <td className="py-4 px-4 text-center font-mono font-medium text-slate-400 group-hover:text-slate-200">
-                        {serialNumber}
-                      </td>
+                    {/* 4. Match Score */}
+                    <td className="text-center">
+                      {isPending ? (
+                        <span className="status-badge-inline" style={{ backgroundColor: 'var(--bg-subtle)', color: 'var(--text-muted)' }}>
+                          <Clock size={11} /> Pending
+                        </span>
+                      ) : (
+                        <b className="final-score-text">
+                          {candidate.finalScore?.toFixed(1)}%
+                        </b>
+                      )}
+                    </td>
 
-                      {/* Candidate Name & Contact */}
-                      <td className="py-4 px-6">
-                        <div 
-                          onClick={() => onSelectCandidate(candidate)}
-                          className="cursor-pointer group-hover:text-blue-400"
+                    {/* 5. Verification Status */}
+                    <td className="text-center">
+                      {hasFraudAlerts ? (
+                        <span 
+                          className="status-badge-inline status-review"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => setViewingResumeCandidate(candidate)}
+                          title="Click to view fraud scan findings"
                         >
-                          <div className="font-semibold text-white group-hover:text-blue-400 transition-colors text-sm">
-                            {candidate.name}
-                          </div>
-                          <p className="text-[11px] text-slate-400">{candidate.email}</p>
-                          <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
-                            {candidate.location && <span>{candidate.location}</span>}
-                            {candidate.phone && <span>• {candidate.phone}</span>}
-                          </div>
-                        </div>
-                      </td>
+                          <ShieldAlert size={12} /> Review ({candidate.verificationAlerts.length})
+                        </span>
+                      ) : (
+                        <span className="status-badge-inline status-strong">
+                          <ShieldCheck size={12} /> Verified Clean
+                        </span>
+                      )}
+                    </td>
 
-                      {/* Uploaded Resume File */}
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-2.5">
-                          <button
-                            type="button"
-                            onClick={() => setViewingResumeCandidate(candidate)}
-                            className="flex items-center gap-2 px-3 py-1.5 bg-slate-950/80 hover:bg-slate-800 border border-slate-700/80 rounded-lg text-slate-200 hover:text-white transition-all text-xs text-left max-w-[240px]"
-                            title="Click to view original resume"
-                          >
-                            <FileText className={`w-4 h-4 shrink-0 ${isDocx ? 'text-indigo-400' : 'text-rose-400'}`} />
-                            <div className="truncate min-w-0">
-                              <span className="font-medium truncate block text-xs">
-                                {resume?.fileName || `${candidate.name}_Resume.pdf`}
-                              </span>
-                              <span className="text-[10px] text-slate-400 uppercase font-mono">
-                                {isDocx ? 'DOCX Document' : 'PDF Document'}
-                              </span>
-                            </div>
-                            <Eye className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-auto group-hover:text-blue-400" />
-                          </button>
-                        </div>
-                      </td>
+                    {/* 6. Action: View Resume & Profile */}
+                    <td className="text-right">
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setViewingResumeCandidate(candidate)}
+                          title="View Resume Document"
+                        >
+                          <FileText size={13} /> Resume
+                        </button>
 
-                      {/* Match Score (No fake numbers when analysis pending) */}
-                      <td className="py-4 px-6 text-center">
-                        {isPending ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-400 text-[11px] font-mono">
-                            <Clock className="w-3 h-3 text-slate-500" />
-                            — (Pending)
-                          </span>
-                        ) : (
-                          <div className="inline-flex flex-col items-center">
-                            <span className={`text-sm font-bold font-mono ${
-                              (candidate.finalScore || 0) >= 80 ? 'text-emerald-400' :
-                              (candidate.finalScore || 0) >= 65 ? 'text-blue-400' : 'text-amber-400'
-                            }`}>
-                              {candidate.finalScore}%
-                            </span>
-                            <span className="text-[9px] text-slate-500 uppercase tracking-wider">Score</span>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Integrity / Fraud Scan */}
-                      <td className="py-4 px-6 text-center">
-                        {hasFraudAlerts ? (
-                          <button
-                            type="button"
-                            onClick={() => setViewingResumeCandidate(candidate)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-medium hover:bg-amber-500/20 transition-colors"
-                          >
-                            <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-                            Review Flagged ({candidate.verificationAlerts.length})
-                          </button>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-medium">
-                            <CheckCircle2 className="w-3 h-3" />
-                            Scan Clean
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Action buttons */}
-                      <td className="py-4 px-6 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setViewingResumeCandidate(candidate)}
-                            className="p-1.5 text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-700 rounded-lg transition-colors"
-                            title="View Resume"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => onSelectCandidate(candidate)}
-                            className="px-2.5 py-1 bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
-                          >
-                            Profile
-                            <ChevronRight className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          onClick={() => onSelectCandidate(candidate)}
+                        >
+                          Profile <ChevronRight size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* Resume Upload Modal */}
+      {/* Upload Candidate Resume Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fadeIn">
-          <div className="relative w-full max-w-lg bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden text-slate-100">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/80">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
-                  <UploadCloud className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-white">Upload Candidate Resume</h3>
-                  <p className="text-xs text-slate-400">Applying to: <span className="text-slate-200">{job.title}</span></p>
-                </div>
+        <div className="modal-backdrop" onClick={() => setShowUploadModal(false)}>
+          <div 
+            className="modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '540px', maxHeight: '90vh', overflowY: 'auto' }}
+            role="dialog"
+            aria-modal="true"
+          >
+            <header className="modal-header">
+              <div>
+                <span className="modal-eyebrow">ATTACH RESUME</span>
+                <h2>Upload Candidate Resume</h2>
+                <p>Applying to: <b>{job.title}</b></p>
               </div>
-              <button
+              <button 
+                type="button" 
+                className="close-btn" 
                 onClick={() => setShowUploadModal(false)}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                aria-label="Close"
               >
-                <X className="w-5 h-5" />
+                <X size={18} />
               </button>
-            </div>
+            </header>
 
-            <form onSubmit={handleUploadSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleUploadSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '10px' }}>
               {uploadError && (
-                <div className="p-3 bg-rose-500/15 border border-rose-500/30 rounded-lg text-rose-300 text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{uploadError}</span>
+                <div style={{ padding: '10px 14px', backgroundColor: 'var(--danger-bg)', color: 'var(--danger-text)', borderRadius: 'var(--radius-md)', fontSize: '12px' }}>
+                  {uploadError}
                 </div>
               )}
 
               {/* Drag & Drop File Box */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Resume Document (PDF or DOCX) <span className="text-rose-400">*</span>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  Resume Document (PDF or DOCX) *
                 </label>
                 <div
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={handleFileDrop}
                   onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
-                    selectedFile
-                      ? 'border-blue-500 bg-blue-500/5'
-                      : 'border-slate-700 hover:border-slate-600 bg-slate-950/50'
-                  }`}
+                  className={`dropzone-box ${selectedFile ? 'has-file' : ''}`}
+                  style={{ padding: '24px 16px', textAlign: 'center', cursor: 'pointer' }}
                 >
                   <input
                     ref={fileInputRef}
                     type="file"
                     accept=".pdf,.docx,.doc"
                     onChange={handleFileChange}
-                    className="hidden"
+                    style={{ display: 'none' }}
                   />
                   {selectedFile ? (
-                    <div className="flex flex-col items-center">
-                      <FileText className="w-8 h-8 text-blue-400 mb-2" />
-                      <p className="text-sm font-semibold text-white truncate max-w-xs">{selectedFile.name}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {(selectedFile.size / 1024).toFixed(1)} KB • Click or drop to replace
-                      </p>
+                    <div>
+                      <FileText size={28} style={{ color: 'var(--primary)', margin: '0 auto 6px' }} />
+                      <b style={{ display: 'block', fontSize: '13px', color: 'var(--text-primary)' }}>{selectedFile.name}</b>
+                      <small style={{ color: 'var(--text-muted)' }}>
+                        {(selectedFile.size / 1024).toFixed(1)} KB · Click to replace
+                      </small>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center">
-                      <UploadCloud className="w-8 h-8 text-slate-500 mb-2" />
-                      <p className="text-xs font-semibold text-slate-200">
-                        Drag & drop your resume file here, or <span className="text-blue-400 underline">browse</span>
-                      </p>
-                      <p className="text-[11px] text-slate-500 mt-1">Supports PDF & DOCX up to 25MB</p>
+                    <div>
+                      <Upload size={28} style={{ color: 'var(--text-light)', margin: '0 auto 6px' }} />
+                      <b style={{ display: 'block', fontSize: '13px' }}>Drop candidate resume here</b>
+                      <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '2px 0' }}>or click to browse files</p>
+                      <small style={{ fontSize: '10px', color: 'var(--text-light)' }}>Supports PDF, DOCX (up to 25MB)</small>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Candidate Info Fields */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                    Candidate Full Name
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                    Candidate Name
                   </label>
                   <input
                     type="text"
                     value={uploadName}
                     onChange={(e) => setUploadName(e.target.value)}
                     placeholder="e.g. Alex Johnson"
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-color)',
+                      fontSize: '12px',
+                      backgroundColor: '#ffffff'
+                    }}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px' }}>
                     Email Address
                   </label>
                   <input
                     type="email"
                     value={uploadEmail}
                     onChange={(e) => setUploadEmail(e.target.value)}
-                    placeholder="alex.johnson@example.com"
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    placeholder="alex@example.com"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-color)',
+                      fontSize: '12px',
+                      backgroundColor: '#ffffff'
+                    }}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px' }}>
                     Phone Number
                   </label>
                   <input
@@ -566,12 +481,19 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
                     value={uploadPhone}
                     onChange={(e) => setUploadPhone(e.target.value)}
                     placeholder="+1 (555) 234-5678"
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-color)',
+                      fontSize: '12px',
+                      backgroundColor: '#ffffff'
+                    }}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px' }}>
                     Location
                   </label>
                   <input
@@ -579,42 +501,45 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
                     value={uploadLocation}
                     onChange={(e) => setUploadLocation(e.target.value)}
                     placeholder="San Francisco, CA"
-                    className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-color)',
+                      fontSize: '12px',
+                      backgroundColor: '#ffffff'
+                    }}
                   />
                 </div>
               </div>
 
-              {/* Informational callout */}
-              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs text-blue-300 flex items-start gap-2">
-                <Sparkles className="w-4 h-4 shrink-0 mt-0.5 text-blue-400" />
-                <span>
-                  The resume will be securely attached to this job opening. Match score will be marked <strong>Pending</strong> until an AI intelligence scan is triggered.
-                </span>
+              {/* Informational Callout */}
+              <div style={{ padding: '10px 14px', backgroundColor: 'var(--primary-light)', border: '1px solid var(--primary-subtle)', borderRadius: 'var(--radius-md)', fontSize: '12px', color: 'var(--primary-text)' }}>
+                <Sparkles size={14} style={{ display: 'inline', marginRight: '6px', verticalAlign: '-2px' }} />
+                The resume will be securely attached to this job opening. Match score will be marked <b>Pending</b> until AI intelligence scan is triggered.
               </div>
 
-              {/* Footer */}
-              <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-2.5">
+              {/* Action Buttons */}
+              <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                 <button
                   type="button"
+                  className="btn btn-secondary"
                   onClick={() => setShowUploadModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={uploading || !selectedFile}
-                  className="px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors flex items-center gap-1.5 shadow-lg shadow-blue-500/20 disabled:opacity-50"
+                  className="btn btn-primary"
                 >
                   {uploading ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Uploading Resume...
+                      <Loader2 size={14} className="animate-spin" /> Uploading...
                     </>
                   ) : (
                     <>
-                      <UploadCloud className="w-4 h-4" />
-                      Attach Resume to Job
+                      <Upload size={14} /> Attach Resume to Job
                     </>
                   )}
                 </button>

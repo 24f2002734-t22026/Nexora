@@ -6,7 +6,6 @@ import {
   FileText, 
   ZoomIn, 
   ZoomOut, 
-  RotateCw, 
   AlertCircle, 
   CheckCircle2, 
   ShieldAlert,
@@ -33,7 +32,6 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({ candidate,
   const resume = candidate.resume;
   const fileUrl = resume ? store.getResumeUrl(candidate.id, resume) : null;
   const isDocx = resume?.fileType === 'docx' || resume?.fileName.endsWith('.docx');
-  const isPdf = !isDocx;
 
   useEffect(() => {
     let isMounted = true;
@@ -112,7 +110,6 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({ candidate,
       a.click();
       document.body.removeChild(a);
     } else {
-      // Create downloadable text/pdf representation
       const dummyContent = generateSimulatedResumeText(candidate);
       const blob = new Blob([dummyContent], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -133,213 +130,240 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({ candidate,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 md:p-6 animate-fadeIn">
-      <div className="relative w-full max-w-6xl h-[90vh] bg-slate-900 border border-slate-700/70 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100">
-        
+    <div className="modal-backdrop" onClick={onClose} style={{ padding: '20px' }}>
+      <div 
+        className="modal-card"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%',
+          maxWidth: '1040px',
+          height: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: 0,
+          overflow: 'hidden',
+          backgroundColor: '#ffffff'
+        }}
+        role="dialog"
+        aria-modal="true"
+      >
         {/* Top Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/80">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
-              <FileText className="w-5 h-5" />
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '14px 20px',
+          borderBottom: '1px solid var(--border-color)',
+          backgroundColor: '#fafbfc'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+            <div style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: 'var(--primary-light)',
+              color: 'var(--primary)',
+              display: 'grid',
+              placeItems: 'center',
+              flexShrink: 0
+            }}>
+              <FileText size={18} />
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-semibold text-white truncate max-w-md">
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <b style={{ fontSize: '14px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '320px' }}>
                   {resume?.fileName || `${candidate.name} - Resume`}
-                </h2>
-                <span className={`px-2 py-0.5 text-xs font-medium uppercase tracking-wider rounded-md ${
-                  isDocx ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                }`}>
+                </b>
+                <span className="status-badge-inline status-strong" style={{ fontSize: '10px' }}>
                   {isDocx ? 'DOCX' : 'PDF'}
                 </span>
                 {candidate.resume?.fileSize && (
-                  <span className="text-xs text-slate-400">
+                  <small style={{ color: 'var(--text-muted)' }}>
                     {(candidate.resume.fileSize / 1024).toFixed(1)} KB
-                  </span>
+                  </small>
                 )}
               </div>
-              <p className="text-xs text-slate-400 truncate">
-                Applicant: <span className="text-slate-200 font-medium">{candidate.name}</span> • {candidate.email}
-              </p>
+              <small style={{ color: 'var(--text-muted)' }}>
+                Applicant: <b style={{ color: 'var(--text-secondary)' }}>{candidate.name}</b> · {candidate.email}
+              </small>
             </div>
           </div>
 
-          {/* View Mode Tabs (if fraud findings exist) */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center bg-slate-800/80 rounded-lg p-1 border border-slate-700">
+          {/* View Mode Tabs & Action Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="filter-pill-group">
               <button
+                type="button"
+                className={`filter-pill ${activeTab === 'document' ? 'active' : ''}`}
                 onClick={() => setActiveTab('document')}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${
-                  activeTab === 'document'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
               >
-                <Eye className="w-3.5 h-3.5" />
+                <Eye size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: '-1px' }} />
                 Document View
               </button>
               <button
+                type="button"
+                className={`filter-pill ${activeTab === 'fraud_report' ? 'active' : ''}`}
                 onClick={() => setActiveTab('fraud_report')}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${
-                  activeTab === 'fraud_report'
-                    ? 'bg-purple-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
               >
-                <ShieldAlert className="w-3.5 h-3.5" />
+                <ShieldAlert size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: '-1px' }} />
                 Verification & Fraud
                 {candidate.verificationAlerts?.length > 0 && (
-                  <span className="w-4 h-4 rounded-full bg-amber-500/30 text-amber-300 text-[10px] flex items-center justify-center font-bold">
+                  <span style={{
+                    marginLeft: '4px',
+                    padding: '1px 5px',
+                    backgroundColor: 'var(--warning-bg)',
+                    color: 'var(--warning-text)',
+                    borderRadius: '999px',
+                    fontSize: '10px',
+                    fontWeight: 700
+                  }}>
                     {candidate.verificationAlerts.length}
                   </span>
                 )}
               </button>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2 border-l border-slate-800 pl-3">
-              {/* Zoom controls */}
-              <div className="hidden sm:flex items-center bg-slate-800 rounded-lg border border-slate-700 p-0.5">
-                <button
-                  onClick={() => setZoom((z) => Math.max(50, z - 15))}
-                  className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
-                  title="Zoom Out"
-                >
-                  <ZoomOut className="w-4 h-4" />
-                </button>
-                <span className="text-xs px-2 text-slate-300 font-mono min-w-[3rem] text-center">
-                  {zoom}%
-                </span>
-                <button
-                  onClick={() => setZoom((z) => Math.min(175, z + 15))}
-                  className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
-                  title="Zoom In"
-                >
-                  <ZoomIn className="w-4 h-4" />
-                </button>
-              </div>
-
-              {fileUrl && (
-                <button
-                  onClick={handleOpenNewTab}
-                  className="p-2 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors"
-                  title="Open in New Tab"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </button>
-              )}
-
+            {/* Zoom controls */}
+            <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
               <button
-                onClick={handleDownload}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors shadow-sm"
+                type="button"
+                onClick={() => setZoom((z) => Math.max(50, z - 15))}
+                style={{ padding: '6px 8px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                title="Zoom Out"
               >
-                <Download className="w-4 h-4" />
-                Download
+                <ZoomOut size={13} />
               </button>
-
+              <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', padding: '0 6px', color: 'var(--text-muted)' }}>
+                {zoom}%
+              </span>
               <button
-                onClick={onClose}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors ml-1"
-                title="Close (Esc)"
+                type="button"
+                onClick={() => setZoom((z) => Math.min(175, z + 15))}
+                style={{ padding: '6px 8px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                title="Zoom In"
               >
-                <X className="w-5 h-5" />
+                <ZoomIn size={13} />
               </button>
             </div>
+
+            {fileUrl && (
+              <button
+                type="button"
+                onClick={handleOpenNewTab}
+                className="btn btn-secondary btn-sm"
+                title="Open in New Tab"
+              >
+                <ExternalLink size={13} />
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="btn btn-primary btn-sm"
+            >
+              <Download size={13} /> Download Original
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="close-btn"
+              style={{ marginLeft: '4px' }}
+              title="Close (Esc)"
+            >
+              <X size={18} />
+            </button>
           </div>
         </div>
 
         {/* Content Viewer Area */}
-        <div ref={containerRef} className="flex-1 overflow-auto bg-slate-950 p-4 md:p-8 flex justify-center">
+        <div 
+          ref={containerRef} 
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            backgroundColor: '#f1f5f9',
+            padding: '24px',
+            display: 'flex',
+            justifyContent: 'center'
+          }}
+        >
           {loading ? (
-            <div className="flex flex-col items-center justify-center text-center m-auto py-16">
-              <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-4" />
-              <p className="text-slate-300 font-medium">Loading document preview...</p>
-              <p className="text-xs text-slate-500 mt-1">Rendering {isDocx ? 'DOCX via Mammoth' : 'PDF'}</p>
+            <div style={{ textAlign: 'center', margin: 'auto', padding: '40px 0' }}>
+              <Loader2 size={28} className="animate-spin" style={{ color: 'var(--primary)', margin: '0 auto 10px' }} />
+              <b style={{ display: 'block', fontSize: '13px', color: 'var(--text-primary)' }}>Loading document preview...</b>
+              <small style={{ color: 'var(--text-muted)' }}>Rendering {isDocx ? 'DOCX via Mammoth' : 'PDF'}</small>
             </div>
           ) : activeTab === 'fraud_report' ? (
             /* Verification & Fraud Report Tab */
-            <div className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-xl p-6 h-fit text-slate-200">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
+            <div style={{ width: '100%', maxWidth: '800px', backgroundColor: '#ffffff', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px', marginBottom: '18px' }}>
                 <div>
-                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                    <ShieldAlert className="w-5 h-5 text-indigo-400" />
+                  <h3 style={{ fontSize: '15px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ShieldAlert size={18} style={{ color: 'var(--primary)' }} />
                     Document Integrity & Fraud Scan Results
                   </h3>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <small style={{ color: 'var(--text-muted)' }}>
                     Multi-layer checks for white fonting, micro text, off-margin injection, and timeline consistency.
-                  </p>
+                  </small>
                 </div>
-                <div className="text-right">
-                  <span className="text-xs text-slate-400">Scan Status</span>
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
-                    <CheckCircle2 className="w-4 h-4" />
-                    Completed
-                  </div>
+                <div className="status-badge-inline status-strong">
+                  <CheckCircle2 size={12} /> Scan Completed
                 </div>
               </div>
 
-              {/* Fraud Report Details */}
               {candidate.verificationAlerts && candidate.verificationAlerts.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                      <div>
-                        <h4 className="text-sm font-semibold text-amber-300">
-                          {candidate.verificationAlerts.length} Formatting / Timeline Notification(s) Flagged
-                        </h4>
-                        <p className="text-xs text-slate-300 mt-1">
-                          Notice: These verification flags do not alter candidate match scores. Recruiter review recommended.
-                        </p>
-                      </div>
-                    </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ padding: '12px 16px', backgroundColor: 'var(--warning-bg)', border: '1px solid var(--warning-border)', borderRadius: 'var(--radius-md)', color: 'var(--warning-text)', fontSize: '12px' }}>
+                    <AlertCircle size={15} style={{ display: 'inline', marginRight: '6px', verticalAlign: '-2px' }} />
+                    <b>{candidate.verificationAlerts.length} Notification(s) Flagged:</b> These verification flags do not alter candidate match scores. Recruiter review recommended.
                   </div>
 
-                  <div className="space-y-3 mt-4">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {candidate.verificationAlerts.map((alert, idx) => (
-                      <div key={idx} className="p-4 rounded-lg bg-slate-800/80 border border-slate-700/80">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-semibold text-slate-200 uppercase tracking-wider bg-slate-700 px-2 py-0.5 rounded">
+                      <div key={idx} style={{ padding: '12px 14px', backgroundColor: '#fafbfc', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 700, color: 'var(--text-secondary)' }}>
                             {alert.type.replace(/_/g, ' ')}
                           </span>
-                          <span className="text-xs text-amber-400 font-medium">
+                          <span style={{ fontSize: '10px', color: 'var(--warning-text)', fontWeight: 600 }}>
                             Severity: {alert.severity}
                           </span>
                         </div>
-                        <p className="text-sm font-medium text-white">{alert.title}</p>
-                        <p className="text-xs text-slate-400 mt-1">{alert.message}</p>
+                        <b style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{alert.title}</b>
+                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0' }}>{alert.message}</p>
                         {alert.timelineDetails && (
-                          <div className="mt-2 p-2 bg-slate-950/60 rounded text-xs font-mono text-slate-300 border border-slate-800">
+                          <code style={{ display: 'block', marginTop: '6px', padding: '4px 8px', backgroundColor: '#ffffff', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', fontSize: '11px' }}>
                             {alert.timelineDetails}
-                          </div>
+                          </code>
                         )}
                       </div>
                     ))}
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-12 bg-slate-900/50 rounded-xl border border-slate-800/80">
-                  <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
-                  <h4 className="text-base font-semibold text-white">No Resume Manipulation Detected</h4>
-                  <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
+                <div style={{ textAlign: 'center', padding: '36px 16px' }}>
+                  <CheckCircle2 size={36} style={{ color: 'var(--success)', margin: '0 auto 10px' }} />
+                  <b style={{ display: 'block', fontSize: '14px', color: 'var(--text-primary)' }}>No Resume Manipulation Detected</b>
+                  <small style={{ color: 'var(--text-muted)', maxWidth: '400px', display: 'block', margin: '4px auto 0' }}>
                     White fonting, 0pt micro-text, off-margin coordinates, and hidden image layer scans passed with 0 anomalies.
-                  </p>
+                  </small>
                 </div>
               )}
             </div>
           ) : isDocx ? (
             /* DOCX View */
             <div 
-              style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
-              className="transition-transform duration-150 w-full max-w-4xl bg-white text-slate-900 rounded-lg shadow-2xl p-8 md:p-12 min-h-[850px] docx-rendered-paper"
+              style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center', width: '100%', maxWidth: '820px', backgroundColor: '#ffffff', borderRadius: 'var(--radius-lg)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', padding: '36px', minHeight: '800px' }}
             >
               {docxHtml ? (
                 <div 
-                  className="prose prose-slate max-w-none docx-container font-sans text-sm leading-relaxed"
+                  className="docx-container"
                   dangerouslySetInnerHTML={{ __html: docxHtml }} 
                 />
               ) : (
-                <div className="text-center py-12 text-slate-500">
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                   <p>Could not extract formatted DOCX content.</p>
                 </div>
               )}
@@ -347,77 +371,63 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({ candidate,
           ) : fileUrl && (fileUrl.startsWith('blob:') || fileUrl.startsWith('http')) ? (
             /* PDF native embed */
             <div 
-              style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
-              className="w-full max-w-5xl h-full min-h-[800px] transition-transform duration-150"
+              style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center', width: '100%', maxWidth: '900px', height: '100%', minHeight: '750px' }}
             >
               <iframe
                 src={`${fileUrl}#toolbar=1&navpanes=0`}
-                className="w-full h-full min-h-[800px] rounded-lg border border-slate-800 bg-slate-900 shadow-xl"
+                style={{ width: '100%', height: '100%', minHeight: '750px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', backgroundColor: '#ffffff' }}
                 title={`Resume for ${candidate.name}`}
               />
             </div>
           ) : (
             /* Simulated Structured Paper PDF */
             <div 
-              style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
-              className="transition-transform duration-150 w-full max-w-4xl bg-white text-slate-900 rounded-lg shadow-2xl p-8 md:p-12 min-h-[850px] font-sans text-sm"
+              style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center', width: '100%', maxWidth: '820px', backgroundColor: '#ffffff', borderRadius: 'var(--radius-lg)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', padding: '36px', minHeight: '800px' }}
             >
-              {/* Header */}
-              <div className="border-b-2 border-slate-800 pb-4 mb-6">
-                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{candidate.name}</h1>
-                <p className="text-sm font-medium text-blue-700">{candidate.title}</p>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600 mt-2">
+              <div style={{ borderBottom: '2px solid #0f172a', paddingBottom: '14px', marginBottom: '20px' }}>
+                <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '0 0 2px' }}>{candidate.name}</h1>
+                <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--primary)', margin: '0 0 8px' }}>{candidate.title}</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '11px', color: '#64748b' }}>
                   <span>📧 {candidate.email}</span>
                   {candidate.phone && <span>📞 {candidate.phone}</span>}
                   <span>📍 {candidate.location}</span>
-                  {candidate.links?.linkedin && <span>🔗 linkedin.com/in/{candidate.name.toLowerCase().replace(/\s+/g, '')}</span>}
-                  {candidate.links?.github && <span>💻 github.com/{candidate.name.toLowerCase().replace(/\s+/g, '')}</span>}
                 </div>
               </div>
 
-              {/* Summary */}
-              <div className="mb-6">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 border-b border-slate-200 pb-1 mb-2">
-                  Professional Summary
-                </h2>
-                <p className="text-xs text-slate-700 leading-relaxed">
+              <div style={{ marginBottom: '18px' }}>
+                <span className="summary-title">Professional Summary</span>
+                <p style={{ fontSize: '12px', color: '#334155', lineHeight: '1.6' }}>
                   {candidate.explanation || `Accomplished engineer with ${candidate.experienceYears || 4}+ years of experience designing scalable software systems, enterprise web applications, and high-performance cloud architectures.`}
                 </p>
               </div>
 
-              {/* Skills */}
-              <div className="mb-6">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 border-b border-slate-200 pb-1 mb-2">
-                  Technical Skills
-                </h2>
-                <div className="flex flex-wrap gap-1.5">
+              <div style={{ marginBottom: '18px' }}>
+                <span className="summary-title">Technical Skills</span>
+                <div className="skills-inline-wrap">
                   {candidate.matchedSkills && candidate.matchedSkills.length > 0 ? (
                     candidate.matchedSkills.map((s, idx) => (
-                      <span key={idx} className="px-2 py-0.5 bg-slate-100 text-slate-800 text-xs font-medium rounded border border-slate-300">
+                      <span key={idx} className="skill-tag highlighted">
                         {s}
                       </span>
                     ))
                   ) : (
-                    <span className="text-xs text-slate-500 italic">Skills analysis pending</span>
+                    <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>Skills analysis pending</span>
                   )}
                 </div>
               </div>
 
-              {/* Work Experience */}
-              <div className="mb-6">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 border-b border-slate-200 pb-1 mb-3">
-                  Experience
-                </h2>
+              <div style={{ marginBottom: '18px' }}>
+                <span className="summary-title">Work Experience</span>
                 {candidate.workHistory && candidate.workHistory.length > 0 ? (
-                  <div className="space-y-4">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {candidate.workHistory.map((w, idx) => (
                       <div key={idx}>
-                        <div className="flex justify-between items-baseline">
-                          <h3 className="text-xs font-bold text-slate-900">{w.role}</h3>
-                          <span className="text-[11px] text-slate-500">{w.period}</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                          <b style={{ fontSize: '12px', color: '#0f172a' }}>{w.role}</b>
+                          <small style={{ color: '#64748b' }}>{w.period}</small>
                         </div>
-                        <p className="text-xs font-semibold text-slate-700">{w.company}</p>
-                        <ul className="list-disc list-inside text-xs text-slate-600 mt-1 space-y-0.5">
+                        <span style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>{w.company}</span>
+                        <ul style={{ paddingLeft: '16px', margin: '4px 0 0', fontSize: '11px', color: '#64748b' }}>
                           {w.highlights.map((h, hIdx) => (
                             <li key={hIdx}>{h}</li>
                           ))}
@@ -426,26 +436,23 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({ candidate,
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-500 italic">Details extracted from uploaded resume file.</p>
+                  <small style={{ color: '#94a3b8', fontStyle: 'italic' }}>Details on file in uploaded resume.</small>
                 )}
               </div>
 
-              {/* Education */}
-              <div className="mb-6">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 border-b border-slate-200 pb-1 mb-2">
-                  Education
-                </h2>
+              <div>
+                <span className="summary-title">Education</span>
                 {candidate.education && candidate.education.length > 0 ? (
                   candidate.education.map((e, idx) => (
-                    <div key={idx} className="flex justify-between text-xs text-slate-700">
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#475569' }}>
                       <div>
-                        <span className="font-semibold text-slate-900">{e.degree}</span> • {e.institution}
+                        <b style={{ color: '#0f172a' }}>{e.degree}</b> · {e.institution}
                       </div>
-                      <span className="text-slate-500">{e.year}</span>
+                      <span style={{ color: '#64748b' }}>{e.year}</span>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-slate-500 italic">Education details on file.</p>
+                  <small style={{ color: '#94a3b8', fontStyle: 'italic' }}>Education details on file.</small>
                 )}
               </div>
             </div>
@@ -453,12 +460,21 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({ candidate,
         </div>
 
         {/* Footer info bar */}
-        <div className="px-6 py-2.5 bg-slate-950 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+        <div style={{
+          padding: '10px 20px',
+          backgroundColor: '#fafbfc',
+          borderTop: '1px solid var(--border-color)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontSize: '11px',
+          color: 'var(--text-muted)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--success)' }} />
             <span>Document loaded in secure viewer sandbox</span>
           </div>
-          <span>Press <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-slate-300 font-mono">ESC</kbd> to exit</span>
+          <span>Press <kbd style={{ padding: '2px 5px', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', borderRadius: '3px', fontFamily: 'var(--font-mono)' }}>ESC</kbd> to exit</span>
         </div>
       </div>
     </div>
@@ -468,14 +484,12 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({ candidate,
 function generateSimulatedResumeHtml(c: Candidate): string {
   return `
     <div style="font-family: system-ui, -apple-system, sans-serif; line-height: 1.5; color: #1e293b;">
-      <h1 style="font-size: 24px; margin-bottom: 4px; color: #0f172a;">${c.name}</h1>
-      <p style="font-size: 14px; font-weight: 600; color: #2563eb; margin-top: 0;">${c.title}</p>
-      <p style="font-size: 12px; color: #64748b;">${c.email} | ${c.phone || '+1 (555) 019-2831'} | ${c.location}</p>
-      <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 16px 0;" />
-      <h2 style="font-size: 14px; text-transform: uppercase; color: #334155; margin-bottom: 8px;">Professional Overview</h2>
-      <p style="font-size: 13px; color: #334155;">${c.explanation || 'Proven track record of engineering scalable applications and delivering business value.'}</p>
-      <h2 style="font-size: 14px; text-transform: uppercase; color: #334155; margin: 16px 0 8px 0;">Skills</h2>
-      <p style="font-size: 13px; color: #334155;">${c.matchedSkills?.join(', ') || 'Skills pending analysis'}</p>
+      <h1 style="font-size: 20px; margin-bottom: 2px; color: #0f172a;">${c.name}</h1>
+      <p style="font-size: 13px; font-weight: 600; color: #2563eb; margin: 0 0 6px 0;">${c.title}</p>
+      <p style="font-size: 11px; color: #64748b;">${c.email} | ${c.phone || '+1 (555) 019-2831'} | ${c.location}</p>
+      <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 14px 0;" />
+      <h3 style="font-size: 12px; text-transform: uppercase; color: #334155; margin-bottom: 6px;">Professional Summary</h3>
+      <p style="font-size: 12px; color: #334155;">${c.explanation || 'Proven track record of engineering scalable applications and delivering business value.'}</p>
     </div>
   `;
 }

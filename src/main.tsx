@@ -1504,7 +1504,6 @@ function AnalysisJobOpeningsPage() {
     <div className="analysis-job-openings-view">
       <JobOpeningsTable
         onSelectJob={(job) => navigate(`/analysis/${job.id}/candidates`)}
-        onOpenUploadForJob={(job) => navigate(`/analysis/${job.id}/candidates?upload=true`)}
       />
       <RecruiterChatbot candidates={initialCandidates} />
     </div>
