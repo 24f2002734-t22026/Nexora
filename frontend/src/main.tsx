@@ -85,14 +85,42 @@ const useAuth = () => useContext(AuthContext);
 // ---------------------------------------------------------------------------
 // APPLICATION SHELL & BRAND LOGO
 // ---------------------------------------------------------------------------
-function NexoraLogo({ className = '' }: { className?: string }) {
+export function NexoraLogo({ className = '', size = 36 }: { className?: string; size?: number }) {
   return (
     <div className={`nexora-logo ${className}`}>
-      <div className="logo-badge">
-        <Sparkles size={16} />
+      <div className="logo-mark" style={{ width: size, height: size }}>
+        <svg
+          width={Math.round(size * 0.65)}
+          height={Math.round(size * 0.65)}
+          viewBox="0 0 28 28"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id="nexoraGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#93c5fd" />
+              <stop offset="50%" stopColor="#3b82f6" />
+              <stop offset="100%" stopColor="#1d4ed8" />
+            </linearGradient>
+            <linearGradient id="nexoraGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#60a5fa" />
+              <stop offset="100%" stopColor="#2563eb" />
+            </linearGradient>
+          </defs>
+          {/* Left Vertical Pillar */}
+          <path d="M4 23V5L10 5V23H4Z" fill="url(#nexoraGrad1)" />
+          {/* Diagonal Nexus Slash */}
+          <path d="M8 5L20 23H24L12 5H8Z" fill="url(#nexoraGrad2)" />
+          {/* Right Vertical Pillar */}
+          <path d="M18 5L24 5V23H18V5Z" fill="url(#nexoraGrad1)" />
+          {/* Central AI Quantum Sparkle Dot */}
+          <circle cx="14" cy="14" r="2.2" fill="#ffffff" />
+          <path d="M14 9.5V18.5M9.5 14H18.5" stroke="#ffffff" strokeWidth="1" strokeLinecap="square" />
+        </svg>
       </div>
       <div className="logo-text">
         <span className="brand-name">NEXORA</span>
+        <span className="brand-subtitle">TALENT INTELLIGENCE</span>
       </div>
     </div>
   );
