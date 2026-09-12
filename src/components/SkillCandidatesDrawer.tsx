@@ -89,7 +89,7 @@ export function SkillCandidatesDrawer({
           ) : (
             <div className="candidate-drawer-list">
               {list.map((c) => {
-                const status = getStatusBadge(c.finalScore);
+                const status = getStatusBadge(c.finalScore ?? 0);
                 const evidence = c.skillEvidence?.[skillName];
 
                 return (
@@ -110,7 +110,7 @@ export function SkillCandidatesDrawer({
                         <span className="candidate-role">{c.title}</span>
                       </div>
                       <div className="match-score-pill">
-                        <b>{c.finalScore.toFixed(1)}%</b>
+                        <b>{c.finalScore !== undefined ? `${c.finalScore.toFixed(1)}%` : '—'}</b>
                         <small>Match</small>
                       </div>
                     </div>
@@ -118,11 +118,11 @@ export function SkillCandidatesDrawer({
                     <div className="card-score-breakdown">
                       <div className="metric-chip">
                         <span>Semantic Match</span>
-                        <b>{c.semanticScore}%</b>
+                        <b>{c.semanticScore ?? 0}%</b>
                       </div>
                       <div className="metric-chip">
                         <span>Keyword Match</span>
-                        <b>{c.keywordScore}%</b>
+                        <b>{c.keywordScore ?? 0}%</b>
                       </div>
                       <div className="metric-chip">
                         <span>Experience</span>

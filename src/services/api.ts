@@ -112,7 +112,7 @@ export function simulateHiringWeights(
       multiplier *= 1 - (wRequired - 1) * 0.15;
     }
 
-    const calculatedScore = Math.min(99.4, Math.max(25, Number((c.finalScore * multiplier).toFixed(1))));
+    const calculatedScore = Math.min(99.4, Math.max(25, Number(((c.finalScore ?? 70) * multiplier).toFixed(1))));
 
     return {
       ...c,
