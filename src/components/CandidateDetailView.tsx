@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   FileText,
+  FileCheck2,
+  FileSearch,
   Sparkles,
   ShieldAlert,
   ShieldCheck,
@@ -106,6 +108,32 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother }: Cand
               <div className="meta-item">
                 <Briefcase size={14} />
                 <span>{c.experienceYears} Years Production Experience</span>
+              </div>
+            </div>
+
+            {/* Recruiter-grade dimension stats */}
+            <div className="profile-stats-grid">
+              <div className="profile-stat">
+                <small>CGPA</small>
+                <b>
+                  {c.cgpa}/{c.cgpaScale}
+                </b>
+              </div>
+              <div className="profile-stat">
+                <small>Internships</small>
+                <b>
+                  {c.relevantInternships}/{c.totalInternships} rel.
+                </b>
+              </div>
+              <div className="profile-stat">
+                <small>Relevant Exp</small>
+                <b>{c.relevantExperienceYears} yrs</b>
+              </div>
+              <div className="profile-stat">
+                <small>Projects</small>
+                <b>
+                  {c.relevantProjectsCount}/{c.totalProjects} rel.
+                </b>
               </div>
             </div>
 
@@ -343,7 +371,7 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother }: Cand
                   <div className="exp-top-row">
                     <div>
                       <b className="exp-role">{job.role}</b>
-                      <div className="exp-company">{job.company}</div>
+                      <div className="exp-company">{job.organization}</div>
                     </div>
                     <div className="exp-period-wrap">
                       <span className="exp-period">{job.period}</span>
@@ -377,11 +405,68 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother }: Cand
               <div className="big-score-label">Final Match Score</div>
             </div>
 
-            {/* Semantic vs Keyword Breakdown */}
+            {/* 100-Point Baseline Score Breakdown: 35 semantic / 25 keyword / 15 exp / 15 projects / 10 education */}
+            <div className="score-100-breakdown-box">
+              <h4>Match Score Breakdown (100-pt baseline)</h4>
+
+              <div className="score-component-row">
+                <div className="score-comp-label">
+                  <span>Semantic JD Match (35%)</span>
+                  <b>
+                    {c.semanticScoreWeight}/35
+                  </b>
+                </div>
+                <div className="progress-bar">
+                  <div className="progress-fill semantic" style={{ width: `${(c.semanticScoreWeight / 35) * 100}%` }} />
+                </div>
+              </div>
+
+              <div className="score-component-row">
+                <div className="score-comp-label">
+                  <span>Keyword / Skill Match (25%)</span>
+                  <b>{c.keywordScoreWeight}/25</b>
+                </div>
+                <div className="progress-bar">
+                  <div className="progress-fill keyword" style={{ width: `${(c.keywordScoreWeight / 25) * 100}%` }} />
+                </div>
+              </div>
+
+              <div className="score-component-row">
+                <div className="score-comp-label">
+                  <span>Relevant Experience (15%)</span>
+                  <b>{c.experienceScoreWeight}/15</b>
+                </div>
+                <div className="progress-bar">
+                  <div className="progress-fill experience" style={{ width: `${(c.experienceScoreWeight / 15) * 100}%` }} />
+                </div>
+              </div>
+
+              <div className="score-component-row">
+                <div className="score-comp-label">
+                  <span>Relevant Projects (15%)</span>
+                  <b>{c.projectScoreWeight}/15</b>
+                </div>
+                <div className="progress-bar">
+                  <div className="progress-fill projects" style={{ width: `${(c.projectScoreWeight / 15) * 100}%` }} />
+                </div>
+              </div>
+
+              <div className="score-component-row">
+                <div className="score-comp-label">
+                  <span>Education / CGPA (10%)</span>
+                  <b>{c.educationScoreWeight}/10</b>
+                </div>
+                <div className="progress-bar">
+                  <div className="progress-fill education" style={{ width: `${(c.educationScoreWeight / 10) * 100}%` }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Dual Evaluation Methods (raw signals) */}
             <div className="match-breakdown-box">
               <div className="breakdown-row">
                 <div className="breakdown-label">
-                  <span>Semantic Match</span>
+                  <span>Semantic Match (raw)</span>
                   <b>{c.semanticScore}%</b>
                 </div>
                 <div className="progress-bar">
@@ -395,7 +480,7 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother }: Cand
 
               <div className="breakdown-row">
                 <div className="breakdown-label">
-                  <span>Keyword Match</span>
+                  <span>Keyword Match (raw)</span>
                   <b>{c.keywordScore}%</b>
                 </div>
                 <div className="progress-bar">
@@ -463,8 +548,99 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother }: Cand
 
             {/* Rationale Explanation */}
             <div className="explanation-box">
-              <h4>Candidate Fit Assessment</h4>
+              <h4>Why this candidate?</h4>
               <p>{c.explanation}</p>
+            </div>
+          </div>
+
+          {/* =========================================================================
+              CLAIMS VS EVIDENCE: Explainability core.
+              ========================================================================= */}
+          {c.claimsVsEvidence.length > 0 && (
+            <div className="verification-card">
+              <div className="verif-title-wrap verified" style={{ marginBottom: 10 }}>
+                <FileSearch size={18} />
+                <div>
+                  <h4>Claims vs Evidence</h4>
+                  <span className="verif-status-badge ok">Resume Claims Verified Against Content</span>
+                </div>
+              </div>
+
+              <div className="table-responsive">
+                <table className="claims-evidence-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Resume Claim</th>
+                      <th scope="col">Evidence Found</th>
+                      <th scope="col" className="text-center">Strength</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {c.claimsVsEvidence.map((claim, idx) => (
+                      <tr key={idx}>
+                        <td className="claim-cell">{claim.claim}</td>
+                        <td className="evidence-cell">{claim.evidenceFound}</td>
+                        <td className="text-center">
+                          <span className={`strength-badge ${claim.strength.toLowerCase().replace(' ', '-')}`}>
+                            {claim.strength}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* =========================================================================
+              RESUME EVIDENCE & INTEGRITY CHECK
+              ========================================================================= */}
+          <div className="verification-card">
+            <div className="verif-title-wrap verified" style={{ marginBottom: 10 }}>
+              <FileCheck2 size={18} />
+              <div>
+                <h4>Resume Evidence & Integrity Check</h4>
+                <span className="verif-status-badge ok">
+                  Evidence Coverage: {c.evidenceIntegrity.coveragePercent}%
+                </span>
+              </div>
+            </div>
+
+            <div className="integrity-grid">
+              <div className="integrity-card">
+                <small>Skill Evidence</small>
+                <b>{c.evidenceIntegrity.skillEvidenceLevel}</b>
+              </div>
+              <div className="integrity-card">
+                <small>Project Evidence</small>
+                <b>{c.evidenceIntegrity.projectEvidenceLevel}</b>
+              </div>
+              <div className="integrity-card">
+                <small>Experience Evidence</small>
+                <b>{c.evidenceIntegrity.experienceEvidenceLevel}</b>
+              </div>
+              <div className="integrity-card">
+                <small>Claim Specificity</small>
+                <b>{c.evidenceIntegrity.claimSpecificity}</b>
+              </div>
+              <div className="integrity-card">
+                <small>Timeline Consistency</small>
+                <b>{c.evidenceIntegrity.timelineConsistency}</b>
+              </div>
+              <div className="integrity-card ai-signal">
+                <small>AI-Writing Signal</small>
+                <b>{c.evidenceIntegrity.aiWritingSignal}</b>
+              </div>
+            </div>
+
+            <div className="score-independence-notice">
+              <div className="notice-icon">i</div>
+              <p>
+                <b>About these indicators:</b> Integrity checks measure how well resume claims are
+                supported by concrete evidence. The <b>AI-Writing Signal</b> is a probabilistic
+                indicator only — it is never proof of authorship and never reduces the Match Score.
+              </p>
             </div>
           </div>
 

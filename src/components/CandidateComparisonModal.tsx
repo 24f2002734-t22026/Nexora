@@ -96,20 +96,38 @@ export function CandidateComparisonModal({
                   <b>{a.keywordScore}%</b>
                 </div>
                 <div className="metric-row">
-                  <span>Required Skills</span>
+                  <span>Required Skill Coverage</span>
                   <b>
                     {a.requiredSkillsMatched} / {a.requiredSkillsTotal}
                   </b>
                 </div>
                 <div className="metric-row">
-                  <span>Preferred Skills</span>
+                  <span>Preferred Skill Coverage</span>
                   <b>
                     {a.preferredSkillsMatched} / {a.preferredSkillsTotal}
                   </b>
                 </div>
                 <div className="metric-row">
-                  <span>Experience</span>
-                  <b>{a.experienceYears} Years</b>
+                  <span>Relevant Experience</span>
+                  <b>{a.relevantExperienceYears} yrs</b>
+                </div>
+                <div className="metric-row">
+                  <span>Internships (relevant)</span>
+                  <b>
+                    {a.relevantInternships} / {a.totalInternships}
+                  </b>
+                </div>
+                <div className="metric-row">
+                  <span>Relevant Projects</span>
+                  <b>
+                    {a.relevantProjectsCount} / {a.totalProjects}
+                  </b>
+                </div>
+                <div className="metric-row">
+                  <span>CGPA (10% weight)</span>
+                  <b>
+                    {a.cgpa} / {a.cgpaScale}
+                  </b>
                 </div>
                 <div className="metric-row">
                   <span>Verification</span>
@@ -183,20 +201,38 @@ export function CandidateComparisonModal({
                   <b>{b.keywordScore}%</b>
                 </div>
                 <div className="metric-row">
-                  <span>Required Skills</span>
+                  <span>Required Skill Coverage</span>
                   <b>
                     {b.requiredSkillsMatched} / {b.requiredSkillsTotal}
                   </b>
                 </div>
                 <div className="metric-row">
-                  <span>Preferred Skills</span>
+                  <span>Preferred Skill Coverage</span>
                   <b>
                     {b.preferredSkillsMatched} / {b.preferredSkillsTotal}
                   </b>
                 </div>
                 <div className="metric-row">
-                  <span>Experience</span>
-                  <b>{b.experienceYears} Years</b>
+                  <span>Relevant Experience</span>
+                  <b>{b.relevantExperienceYears} yrs</b>
+                </div>
+                <div className="metric-row">
+                  <span>Internships (relevant)</span>
+                  <b>
+                    {b.relevantInternships} / {b.totalInternships}
+                  </b>
+                </div>
+                <div className="metric-row">
+                  <span>Relevant Projects</span>
+                  <b>
+                    {b.relevantProjectsCount} / {b.totalProjects}
+                  </b>
+                </div>
+                <div className="metric-row">
+                  <span>CGPA (10% weight)</span>
+                  <b>
+                    {b.cgpa} / {b.cgpaScale}
+                  </b>
                 </div>
                 <div className="metric-row">
                   <span>Verification</span>

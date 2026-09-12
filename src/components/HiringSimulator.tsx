@@ -17,6 +17,7 @@ const defaultWeights: HiringWeights = {
   experience: 50,
   projects: 50,
   requiredSkills: 50,
+  education: 50,
 };
 
 export function HiringSimulator({ isOpen, onClose, baseCandidates }: HiringSimulatorProps) {
@@ -163,7 +164,22 @@ export function HiringSimulator({ isOpen, onClose, baseCandidates }: HiringSimul
                   value={weights.requiredSkills}
                   onChange={(e) => handleSliderChange('requiredSkills', Number(e.target.value))}
                 />
-                <small>Penalize gaps across 5 mandatory skills</small>
+                <small>Penalize gaps against mandatory JD skills</small>
+              </div>
+
+              <div className="slider-group">
+                <div className="slider-label-row">
+                  <span>Education / CGPA</span>
+                  <b>{weights.education}%</b>
+                </div>
+                <input
+                  type="range"
+                  min="10"
+                  max="90"
+                  value={weights.education}
+                  onChange={(e) => handleSliderChange('education', Number(e.target.value))}
+                />
+                <small>Adjust academic weighting (never dominates ranking)</small>
               </div>
             </div>
           </div>

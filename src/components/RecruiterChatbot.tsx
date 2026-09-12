@@ -6,17 +6,18 @@ import type { Candidate, ChatMessage } from '../types';
 
 interface RecruiterChatbotProps {
   candidates?: Candidate[];
+  jobTitle?: string;
 }
 
 const suggestedPrompts = [
-  'Why is Rahul ranked #1?',
-  'Who has Angular experience?',
+  'Why is the #1 candidate ranked first?',
   'Which candidates are missing AWS?',
-  'Compare Rahul and Arjun.',
+  'Who has Angular experience?',
   'Which required skill has the biggest candidate gap?',
+  'Compare the top two candidates.',
 ];
 
-export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
+export function RecruiterChatbot({ candidates, jobTitle = 'this analysis' }: RecruiterChatbotProps) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -77,7 +78,9 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
                 </div>
                 <div>
                   <h3 id="chat-title">Recruiter Intelligence Assistant</h3>
-                  <small>Context: Senior Full Stack Engineer (18 candidates)</small>
+                  <small>
+                    Context: {jobTitle} ({candidates?.length ?? 0} candidates)
+                  </small>
                 </div>
               </div>
               <button
@@ -98,7 +101,7 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
                   </div>
                   <h4>How can I assist your hiring decision?</h4>
                   <p>
-                    I have full context over the candidate pool, semantic/keyword evaluations, and skill coverage. Ask questions or try the prompts below:
+                    I have full context over the candidate pool, semantic/keyword evaluations, and skill coverage. Answers are grounded in the actual analysis data — try a prompt below:
                   </p>
 
                   <div className="prompts-list">
@@ -156,7 +159,7 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about candidate rankings, Angular, AWS, or comparisons..."
+                placeholder="Ask Nexora about your candidates..."
                 aria-label="Ask Recruiter Assistant"
               />
               <button type="submit" className="send-btn" disabled={!input.trim() || typing}>

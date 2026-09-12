@@ -1,14 +1,24 @@
-import type { Analysis, Candidate, JobSkill, SkillEvidence, VerificationAlert } from './types';
+import type { Analysis, Candidate, JobSkill } from './types';
 
-export const jobSkills: JobSkill[] = [
-  { name: 'Python', priority: 'required', category: 'backend', matchingCount: 12, missingCount: 6 },
-  { name: 'Angular', priority: 'required', category: 'frontend', matchingCount: 8, missingCount: 10 },
-  { name: 'React', priority: 'required', category: 'frontend', matchingCount: 11, missingCount: 7 },
-  { name: 'SQL', priority: 'required', category: 'database', matchingCount: 15, missingCount: 3 },
-  { name: 'TypeScript', priority: 'required', category: 'technical', matchingCount: 12, missingCount: 6 },
-  { name: 'AWS', priority: 'preferred', category: 'cloud', matchingCount: 6, missingCount: 12 },
-  { name: 'Docker', priority: 'preferred', category: 'cloud', matchingCount: 8, missingCount: 10 },
+// Skill definitions extracted from the Job Description. Priority and category are JD-derived;
+// matching/missing counts are ALWAYS computed from actual candidate evidence so the coverage
+// table, dashboard analytics and skill drawers stay consistent with the ranked pool.
+const jobSkillDefinitions: Omit<JobSkill, 'matchingCount' | 'missingCount'>[] = [
+  { name: 'Python', priority: 'required', category: 'backend' },
+  { name: 'Angular', priority: 'required', category: 'frontend' },
+  { name: 'React', priority: 'required', category: 'frontend' },
+  { name: 'SQL', priority: 'required', category: 'database' },
+  { name: 'TypeScript', priority: 'required', category: 'technical' },
+  { name: 'AWS', priority: 'preferred', category: 'cloud' },
+  { name: 'Docker', priority: 'preferred', category: 'cloud' },
 ];
+
+function computeJobSkills(pool: Candidate[]): JobSkill[] {
+  return jobSkillDefinitions.map((def) => {
+    const matchingCount = pool.filter((c) => c.matchedSkills.includes(def.name)).length;
+    return { ...def, matchingCount, missingCount: pool.length - matchingCount };
+  });
+}
 
 export const candidates: Candidate[] = [
   {
@@ -19,9 +29,26 @@ export const candidates: Candidate[] = [
     phone: '+91 98451 22910',
     location: 'Bengaluru, India',
     rank: 1,
-    finalScore: 94.0,
+    finalScore: 92.4,
+
+    // 100-Point Baseline Evaluation Model Breakdown
     semanticScore: 92.0,
     keywordScore: 96.0,
+    semanticScoreWeight: 33.0, // out of 35
+    keywordScoreWeight: 24.0, // out of 25
+    experienceScoreWeight: 14.0, // out of 15
+    projectScoreWeight: 13.0, // out of 15
+    educationScoreWeight: 8.4, // out of 10
+
+    // Candidate Dimensions
+    cgpa: 9.1,
+    cgpaScale: 10,
+    totalInternships: 2,
+    relevantInternships: 1,
+    relevantExperienceYears: 2.4,
+    totalProjects: 4,
+    relevantProjectsCount: 3,
+
     requiredSkillsMatched: 5,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 1,
@@ -30,29 +57,50 @@ export const candidates: Candidate[] = [
     missingSkills: ['AWS', 'Docker'],
     experience: '3.5 years building resilient web services, single-page enterprise UIs, and relational data pipelines.',
     experienceYears: 3.5,
-    explanation: 'Strong match because the candidate demonstrates Python, Angular, React and SQL across both listed skills and project/experience evidence. AWS experience is limited.',
+    explanation: 'Strong semantic and keyword alignment with the Job Description. 5/5 required skills evidenced across 3 relevant projects and 1 relevant internship with 2.4 years relevant experience. AWS experience is limited to skills listing without production evidence.',
     education: [
-      { degree: 'B.Tech in Computer Science & Engineering', institution: 'National Institute of Technology Karnataka', year: '2022' }
+      { degree: 'B.Tech in Computer Science & Engineering', institution: 'National Institute of Technology Karnataka', year: '2022', cgpa: 9.1, cgpaScale: 10 }
     ],
     projects: [
       {
         title: 'Enterprise Fleet Monitoring Portal',
         description: 'Architected an Angular and TypeScript telemetry dashboard consuming real-time WebSocket feeds with RxJS state management.',
         technologies: ['Angular', 'TypeScript', 'RxJS', 'Python', 'FastAPI'],
-        period: '2024'
+        relevanceToJd: 'High',
+        period: '2024',
+        contribution: 'Lead UI engineer on Angular 16 micro-frontend architecture.'
       },
       {
         title: 'Distributed Analytics Pipeline',
         description: 'Built high-throughput SQL analytics jobs and internal React administrative consoles processing 4M+ daily events.',
         technologies: ['React', 'Python', 'PostgreSQL', 'SQL', 'Redis'],
-        period: '2023 - 2024'
+        relevanceToJd: 'High',
+        period: '2023 - 2024',
+        contribution: 'Designed database schema partitioning and API endpoints.'
+      },
+      {
+        title: 'E-Commerce Checkout Optimization',
+        description: 'Enhanced checkout flow loading speeds and error boundary handling using TypeScript and React.',
+        technologies: ['React', 'TypeScript', 'Node.js'],
+        relevanceToJd: 'High',
+        period: '2023'
+      },
+      {
+        title: 'Personal Developer Portfolio',
+        description: 'Static portfolio built with minimal styling and responsive HTML/CSS.',
+        technologies: ['HTML', 'CSS'],
+        relevanceToJd: 'Low',
+        period: '2022'
       }
     ],
     workHistory: [
       {
-        company: 'CognitiveScale Systems',
+        organization: 'CognitiveScale Systems',
         role: 'Full Stack Engineer',
         period: 'July 2023 – Present',
+        isInternship: false,
+        relevanceToJd: 'High',
+        technologies: ['Angular', 'Python', 'TypeScript', 'SQL'],
         highlights: [
           'Engineered Angular 16 micro-frontend applications integrated with Python FastAPI backend microservices.',
           'Optimized SQL query performance across Postgres partitions, reducing median latency by 42%.',
@@ -60,25 +108,47 @@ export const candidates: Candidate[] = [
         ]
       },
       {
-        company: 'Apex Cloud Labs',
+        organization: 'Apex Cloud Labs',
         role: 'Associate Software Engineer (Internship A)',
         period: 'January 2025 – June 2025',
+        isInternship: true,
         isOverlap: true,
+        relevanceToJd: 'High',
+        technologies: ['React', 'Python', 'SQL'],
         highlights: [
           'Contributed to customer onboarding React dashboards and internal billing tooling.',
           'Automated Python reporting scripts for database maintenance.'
         ]
       },
       {
-        company: 'Vanguard Data Solutions',
+        organization: 'Vanguard Data Solutions',
         role: 'Research Intern (Internship B)',
         period: 'March 2025 – August 2025',
+        isInternship: true,
         isOverlap: true,
+        relevanceToJd: 'Moderate',
+        technologies: ['Angular', 'TypeScript'],
         highlights: [
           'Explored schema migrations and prototype Angular workflows for internal analysts.'
         ]
       }
     ],
+    claimsVsEvidence: [
+      { claim: 'Python expertise', evidenceFound: '2 production microservices + internship reporting scripts', strength: 'Strong' },
+      { claim: 'Angular micro-frontends', evidenceFound: 'Fleet Portal project + CognitiveScale production codebase', strength: 'Strong' },
+      { claim: 'React state architecture', evidenceFound: 'Distributed Analytics Pipeline + Onboarding dashboard', strength: 'Strong' },
+      { claim: 'SQL database optimization', evidenceFound: 'Postgres partitioned query reduction by 42%', strength: 'Strong' },
+      { claim: 'AWS cloud deployment', evidenceFound: 'Listed in resume skills section only; no production project', strength: 'Limited' }
+    ],
+    evidenceIntegrity: {
+      coveragePercent: 84,
+      skillEvidenceLevel: 'Strong',
+      projectEvidenceLevel: 'Strong',
+      experienceEvidenceLevel: 'Moderate',
+      claimSpecificity: 'High',
+      timelineConsistency: 'Review Recommended',
+      aiWritingSignal: 'Low'
+    },
     links: {
       linkedin: 'https://linkedin.com/in/rahul-sharma-dev',
       github: 'https://github.com/rahulsharma-core',
@@ -87,7 +157,7 @@ export const candidates: Candidate[] = [
     externalEvidence: {
       githubRepos: ['angular-telemetry-portal', 'fastapi-event-streamer', 'sql-migration-runner'],
       detectedTech: ['Angular', 'TypeScript', 'Python', 'PostgreSQL', 'React'],
-      profileHealth: 'Active contributor · 840+ contributions in the past 12 months'
+      profileHealth: 'Active contributor · 840+ commits in the past 12 months'
     },
     verificationAlerts: [
       {
@@ -95,7 +165,7 @@ export const candidates: Candidate[] = [
         type: 'timeline_overlap',
         severity: 'warning',
         title: 'Potential internship timeline overlap detected',
-        message: 'Internship at Apex Cloud Labs (Jan 2025 – Jun 2025) overlaps with Vanguard Data Solutions (Mar 2025 – Aug 2025). This may reflect simultaneous part-time engagements or an amended internship timeline, but should be verified during recruiter screening.',
+        message: 'Internship at Apex Cloud Labs (Jan 2025 – Jun 2025) overlaps with Vanguard Data Solutions (Mar 2025 – Aug 2025). This timeline should be verified during interview screening. The candidate’s 92.4% Match Score evaluates technical qualifications independently.',
         timelineDetails: 'Apex Cloud Labs (Jan 2025 – Jun 2025) vs Vanguard Data Solutions (Mar 2025 – Aug 2025)',
         reviewRecommended: true,
         impactOnScore: 0
@@ -103,76 +173,13 @@ export const candidates: Candidate[] = [
     ],
     verificationStatus: 'review_recommended',
     skillEvidence: {
-      Python: {
-        skill: 'Python',
-        priority: 'required',
-        level: 'strong',
-        details: ['Listed in primary technical skills', 'Implemented in 2 production services', 'Extensive backend microservices experience at CognitiveScale'],
-        yearsOfExperience: 3.5,
-        inProjects: true,
-        inSkillsSection: true,
-        inWorkHistory: true
-      },
-      Angular: {
-        skill: 'Angular',
-        priority: 'required',
-        level: 'strong',
-        details: ['Listed in technical skills', 'Used in Enterprise Fleet Portal project', 'Production Angular 16 micro-frontends with RxJS'],
-        yearsOfExperience: 2.5,
-        inProjects: true,
-        inSkillsSection: true,
-        inWorkHistory: true
-      },
-      React: {
-        skill: 'React',
-        priority: 'required',
-        level: 'strong',
-        details: ['Listed in technical skills', 'Used in Distributed Analytics Pipeline project', 'Customer onboarding dashboards'],
-        yearsOfExperience: 2.0,
-        inProjects: true,
-        inSkillsSection: true,
-        inWorkHistory: true
-      },
-      SQL: {
-        skill: 'SQL',
-        priority: 'required',
-        level: 'strong',
-        details: ['Listed in technical skills', 'PostgreSQL partition query optimization', 'Complex transactional relational models'],
-        yearsOfExperience: 3.0,
-        inProjects: true,
-        inSkillsSection: true,
-        inWorkHistory: true
-      },
-      TypeScript: {
-        skill: 'TypeScript',
-        priority: 'required',
-        level: 'strong',
-        details: ['Strict typings across Angular and React projects', 'Maintained team design system types'],
-        yearsOfExperience: 3.0,
-        inProjects: true,
-        inSkillsSection: true,
-        inWorkHistory: true
-      },
-      AWS: {
-        skill: 'AWS',
-        priority: 'preferred',
-        level: 'limited',
-        details: ['Listed in resume skills section only', 'No production project or commercial experience evidence found'],
-        yearsOfExperience: 0.5,
-        inProjects: false,
-        inSkillsSection: true,
-        inWorkHistory: false
-      },
-      Docker: {
-        skill: 'Docker',
-        priority: 'preferred',
-        level: 'not_found',
-        details: ['Skill not detected in resume or project descriptions', 'Insufficient evidence'],
-        yearsOfExperience: 0,
-        inProjects: false,
-        inSkillsSection: false,
-        inWorkHistory: false
-      }
+      Python: { skill: 'Python', priority: 'required', level: 'strong', details: ['Listed in primary technical skills', 'Implemented in 2 production services', 'Extensive backend microservices experience at CognitiveScale'], yearsOfExperience: 3.5, inProjects: true, inSkillsSection: true, inWorkHistory: true },
+      Angular: { skill: 'Angular', priority: 'required', level: 'strong', details: ['Listed in technical skills', 'Used in Enterprise Fleet Portal project', 'Production Angular 16 micro-frontends with RxJS'], yearsOfExperience: 2.5, inProjects: true, inSkillsSection: true, inWorkHistory: true },
+      React: { skill: 'React', priority: 'required', level: 'strong', details: ['Listed in technical skills', 'Used in Distributed Analytics Pipeline project', 'Customer onboarding dashboards'], yearsOfExperience: 2.0, inProjects: true, inSkillsSection: true, inWorkHistory: true },
+      SQL: { skill: 'SQL', priority: 'required', level: 'strong', details: ['Listed in technical skills', 'PostgreSQL partition query optimization', 'Complex transactional relational models'], yearsOfExperience: 3.0, inProjects: true, inSkillsSection: true, inWorkHistory: true },
+      TypeScript: { skill: 'TypeScript', priority: 'required', level: 'strong', details: ['Strict typings across Angular and React projects', 'Maintained team design system types'], yearsOfExperience: 3.0, inProjects: true, inSkillsSection: true, inWorkHistory: true },
+      AWS: { skill: 'AWS', priority: 'preferred', level: 'limited', details: ['Listed in resume skills section only', 'No production project or commercial experience evidence found'], yearsOfExperience: 0.5, inProjects: false, inSkillsSection: true, inWorkHistory: false },
+      Docker: { skill: 'Docker', priority: 'preferred', level: 'not_found', details: ['Skill not detected in resume or project descriptions', 'Insufficient evidence'], yearsOfExperience: 0, inProjects: false, inSkillsSection: false, inWorkHistory: false }
     }
   },
   {
@@ -183,9 +190,24 @@ export const candidates: Candidate[] = [
     phone: '+91 97312 44102',
     location: 'Mumbai, India',
     rank: 2,
-    finalScore: 89.5,
+    finalScore: 89.7,
+
     semanticScore: 88.0,
     keywordScore: 91.0,
+    semanticScoreWeight: 31.0,
+    keywordScoreWeight: 23.0,
+    experienceScoreWeight: 13.0,
+    projectScoreWeight: 14.0,
+    educationScoreWeight: 8.7,
+
+    cgpa: 8.7,
+    cgpaScale: 10,
+    totalInternships: 1,
+    relevantInternships: 1,
+    relevantExperienceYears: 2.0,
+    totalProjects: 4,
+    relevantProjectsCount: 4,
+
     requiredSkillsMatched: 5,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 1,
@@ -196,115 +218,89 @@ export const candidates: Candidate[] = [
     experienceYears: 2.5,
     explanation: 'Exceptional frontend depth with verified Angular and TypeScript production projects. Python and SQL are demonstrated in full stack courseworks and API consumer layers.',
     education: [
-      { degree: 'B.E. in Information Technology', institution: 'VJTI Mumbai', year: '2023' }
+      { degree: 'B.E. in Information Technology', institution: 'VJTI Mumbai', year: '2023', cgpa: 8.7, cgpaScale: 10 }
     ],
     projects: [
       {
         title: 'HealthTech Provider Dashboard',
         description: 'Engineered high-performance Angular UI with NgRx store and TypeScript for 12,000 active clinical practitioners.',
         technologies: ['Angular', 'TypeScript', 'HTML5', 'CSS3', 'RxJS'],
+        relevanceToJd: 'High',
         period: '2024'
       },
       {
         title: 'Inventory Ops Control',
         description: 'Contributed to React and Python Flask inventory system with relational PostgreSQL queries.',
         technologies: ['React', 'Python', 'SQL', 'PostgreSQL'],
+        relevanceToJd: 'High',
         period: '2023'
+      },
+      {
+        title: 'Design System Kit',
+        description: 'Built accessible UI component library conforming to WCAG 2.1 AA in Angular.',
+        technologies: ['Angular', 'TypeScript', 'SCSS'],
+        relevanceToJd: 'High',
+        period: '2023'
+      },
+      {
+        title: 'Real-time Chat Prototype',
+        description: 'WebSocket chat client with local state management.',
+        technologies: ['TypeScript', 'Node.js'],
+        relevanceToJd: 'High',
+        period: '2022'
       }
     ],
     workHistory: [
       {
-        company: 'OmniHealth Digital',
+        organization: 'OmniHealth Digital',
         role: 'Frontend Engineer',
         period: 'August 2023 – Present',
+        isInternship: false,
+        relevanceToJd: 'High',
+        technologies: ['Angular', 'TypeScript', 'HTML5'],
         highlights: [
           'Developed key Angular workflows reducing clinical report loading time by 35%.',
           'Collaborated with product designers on WCAG 2.1 AA accessible UI components.'
         ]
+      },
+      {
+        organization: 'CareMatrix Tech',
+        role: 'Frontend Intern',
+        period: 'January 2023 – July 2023',
+        isInternship: true,
+        relevanceToJd: 'High',
+        technologies: ['Angular', 'TypeScript'],
+        highlights: [
+          'Assisted in refactoring legacy AngularJS modules to modern Angular 14.'
+        ]
       }
     ],
-    links: {
-      linkedin: 'https://linkedin.com/in/arjunkumar-ui',
-      github: 'https://github.com/arjunkumar-dev'
+    claimsVsEvidence: [
+      { claim: 'Angular enterprise engineering', evidenceFound: 'HealthTech Provider dashboard + OmniHealth production tenure', strength: 'Strong' },
+      { claim: 'TypeScript strict types', evidenceFound: 'Used across all 4 projects and work history', strength: 'Strong' },
+      { claim: 'Python backend scripting', evidenceFound: 'Inventory Ops project with Flask backend', strength: 'Moderate' },
+      { claim: 'AWS infrastructure', evidenceFound: 'Skill not detected in resume text', strength: 'Not Found' }
+    ],
+    evidenceIntegrity: {
+      coveragePercent: 88,
+      skillEvidenceLevel: 'Strong',
+      projectEvidenceLevel: 'Strong',
+      experienceEvidenceLevel: 'Strong',
+      claimSpecificity: 'High',
+      timelineConsistency: 'Verified',
+      aiWritingSignal: 'Low'
     },
-    externalEvidence: {
-      githubRepos: ['angular-ngrx-starter', 'accessible-form-controls'],
-      detectedTech: ['Angular', 'TypeScript', 'HTML', 'CSS', 'React'],
-      profileHealth: 'Consistent commit history · Active open-source maintainer'
-    },
+    links: { linkedin: 'https://linkedin.com/in/arjunkumar-ui', github: 'https://github.com/arjunkumar-dev' },
     verificationAlerts: [],
     verificationStatus: 'verified',
     skillEvidence: {
-      Angular: {
-        skill: 'Angular',
-        priority: 'required',
-        level: 'strong',
-        details: ['Listed in skills', '2 production applications in healthtech', 'NgRx & RxJS master certification'],
-        yearsOfExperience: 2.5,
-        inProjects: true,
-        inSkillsSection: true,
-        inWorkHistory: true
-      },
-      TypeScript: {
-        skill: 'TypeScript',
-        priority: 'required',
-        level: 'strong',
-        details: ['Core language in all frontend roles', 'Strict type configurations'],
-        yearsOfExperience: 2.5,
-        inProjects: true,
-        inSkillsSection: true,
-        inWorkHistory: true
-      },
-      React: {
-        skill: 'React',
-        priority: 'required',
-        level: 'moderate',
-        details: ['Used in Inventory Ops Control project', 'Familiar with React Hooks and component state'],
-        yearsOfExperience: 1.0,
-        inProjects: true,
-        inSkillsSection: true,
-        inWorkHistory: false
-      },
-      Python: {
-        skill: 'Python',
-        priority: 'required',
-        level: 'moderate',
-        details: ['Academic project backend with Flask', 'Listed in technical skills'],
-        yearsOfExperience: 1.0,
-        inProjects: true,
-        inSkillsSection: true,
-        inWorkHistory: false
-      },
-      SQL: {
-        skill: 'SQL',
-        priority: 'required',
-        level: 'moderate',
-        details: ['Postgres schema queries in academic and contract projects'],
-        yearsOfExperience: 1.5,
-        inProjects: true,
-        inSkillsSection: true,
-        inWorkHistory: false
-      },
-      Docker: {
-        skill: 'Docker',
-        priority: 'preferred',
-        level: 'moderate',
-        details: ['Local docker-compose workflows for development environments'],
-        yearsOfExperience: 1.0,
-        inProjects: true,
-        inSkillsSection: true,
-        inWorkHistory: false
-      },
-      AWS: {
-        skill: 'AWS',
-        priority: 'preferred',
-        level: 'not_found',
-        details: ['Skill not detected in resume', 'Insufficient evidence'],
-        yearsOfExperience: 0,
-        inProjects: false,
-        inSkillsSection: false,
-        inWorkHistory: false
-      }
+      Angular: { skill: 'Angular', priority: 'required', level: 'strong', details: ['Listed in skills', '2 production applications in healthtech', 'NgRx & RxJS mastery'], yearsOfExperience: 2.5, inProjects: true, inSkillsSection: true, inWorkHistory: true },
+      TypeScript: { skill: 'TypeScript', priority: 'required', level: 'strong', details: ['Core language in all frontend roles', 'Strict type configurations'], yearsOfExperience: 2.5, inProjects: true, inSkillsSection: true, inWorkHistory: true },
+      React: { skill: 'React', priority: 'required', level: 'moderate', details: ['Used in Inventory Ops Control project', 'Familiar with React Hooks and component state'], yearsOfExperience: 1.0, inProjects: true, inSkillsSection: true, inWorkHistory: false },
+      Python: { skill: 'Python', priority: 'required', level: 'moderate', details: ['Academic project backend with Flask', 'Listed in technical skills'], yearsOfExperience: 1.0, inProjects: true, inSkillsSection: true, inWorkHistory: false },
+      SQL: { skill: 'SQL', priority: 'required', level: 'moderate', details: ['Postgres schema queries in contract projects'], yearsOfExperience: 1.5, inProjects: true, inSkillsSection: true, inWorkHistory: false },
+      Docker: { skill: 'Docker', priority: 'preferred', level: 'moderate', details: ['Local docker-compose workflows for development'], yearsOfExperience: 1.0, inProjects: true, inSkillsSection: true, inWorkHistory: false },
+      AWS: { skill: 'AWS', priority: 'preferred', level: 'not_found', details: ['Skill not detected in resume', 'Insufficient evidence'], yearsOfExperience: 0, inProjects: false, inSkillsSection: false, inWorkHistory: false }
     }
   },
   {
@@ -312,12 +308,26 @@ export const candidates: Candidate[] = [
     name: 'Maya Patel',
     title: 'Full Stack Engineer',
     email: 'maya.patel@example.com',
-    phone: '+91 99801 77312',
     location: 'Pune, India',
     rank: 3,
     finalScore: 87.2,
+
     semanticScore: 89.0,
     keywordScore: 85.0,
+    semanticScoreWeight: 31.0,
+    keywordScoreWeight: 21.0,
+    experienceScoreWeight: 14.0,
+    projectScoreWeight: 13.0,
+    educationScoreWeight: 8.2,
+
+    cgpa: 8.5,
+    cgpaScale: 10,
+    totalInternships: 1,
+    relevantInternships: 1,
+    relevantExperienceYears: 2.5,
+    totalProjects: 3,
+    relevantProjectsCount: 3,
+
     requiredSkillsMatched: 4,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 2,
@@ -327,37 +337,65 @@ export const candidates: Candidate[] = [
     experience: '3 years building scalable cloud backend services in Python and interactive React dashboards on AWS.',
     experienceYears: 3.0,
     explanation: 'Outstanding cloud and backend capabilities with comprehensive AWS, Docker, and Python evidence. Angular is not detected in the resume; React is primary frontend framework.',
-    education: [
-      { degree: 'B.Tech in Computer Science', institution: 'COEP Technological University', year: '2022' }
-    ],
+    education: [{ degree: 'B.Tech in Computer Science', institution: 'COEP Technological University', year: '2022', cgpa: 8.5, cgpaScale: 10 }],
     projects: [
       {
         title: 'Cloud Billing & Usage Aggregator',
         description: 'Serverless AWS Lambda and ECS data ingestion service writing to Aurora PostgreSQL.',
         technologies: ['Python', 'AWS', 'Docker', 'PostgreSQL', 'SQL'],
+        relevanceToJd: 'High',
         period: '2023 - 2024'
+      },
+      {
+        title: 'Real-time Metrics Console',
+        description: 'React dashboard visualizing cluster resource utilization.',
+        technologies: ['React', 'TypeScript', 'AWS'],
+        relevanceToJd: 'High',
+        period: '2023'
+      },
+      {
+        title: 'Automated DB Migration Scripting',
+        description: 'Python tooling for continuous schema deployment.',
+        technologies: ['Python', 'SQL'],
+        relevanceToJd: 'High',
+        period: '2022'
       }
     ],
     workHistory: [
       {
-        company: 'Strata Cloud Solutions',
+        organization: 'Strata Cloud Solutions',
         role: 'Full Stack Engineer',
         period: 'September 2022 – Present',
-        highlights: [
-          'Maintained CI/CD pipelines deploying containerized Python apps to AWS ECS.',
-          'Built internal analytics dashboards in React with TypeScript.'
-        ]
+        isInternship: false,
+        relevanceToJd: 'High',
+        technologies: ['Python', 'AWS', 'Docker', 'React'],
+        highlights: ['Maintained CI/CD pipelines deploying containerized Python apps to AWS ECS.', 'Built internal analytics dashboards in React with TypeScript.']
+      },
+      {
+        organization: 'CloudScale Labs',
+        role: 'Backend Intern',
+        period: 'February 2022 – July 2022',
+        isInternship: true,
+        relevanceToJd: 'High',
+        technologies: ['Python', 'SQL'],
+        highlights: ['Assisted in building REST APIs.']
       }
     ],
-    links: {
-      linkedin: 'https://linkedin.com/in/mayapatel-tech',
-      github: 'https://github.com/mayapatel'
+    claimsVsEvidence: [
+      { claim: 'AWS cloud architecture', evidenceFound: 'Certified AWS Solutions Architect + ECS production services', strength: 'Strong' },
+      { claim: 'Python backend pipelines', evidenceFound: 'FastAPI and Lambda handlers in Strata Cloud', strength: 'Strong' },
+      { claim: 'Angular framework', evidenceFound: 'Not found in resume text; React candidate', strength: 'Not Found' }
+    ],
+    evidenceIntegrity: {
+      coveragePercent: 86,
+      skillEvidenceLevel: 'Strong',
+      projectEvidenceLevel: 'Strong',
+      experienceEvidenceLevel: 'Strong',
+      claimSpecificity: 'High',
+      timelineConsistency: 'Verified',
+      aiWritingSignal: 'Low'
     },
-    externalEvidence: {
-      githubRepos: ['aws-infra-terraform', 'react-metrics-board'],
-      detectedTech: ['Python', 'AWS', 'Docker', 'React', 'TypeScript'],
-      profileHealth: 'Active GitHub profile with verified cloud certifications'
-    },
+    links: { linkedin: 'https://linkedin.com/in/mayapatel-tech', github: 'https://github.com/mayapatel' },
     verificationAlerts: [],
     verificationStatus: 'verified',
     skillEvidence: {
@@ -375,12 +413,26 @@ export const candidates: Candidate[] = [
     name: 'Karthik Srinivasan',
     title: 'Software Developer',
     email: 'karthik.s@example.com',
-    phone: '+91 94451 88201',
     location: 'Chennai, India',
     rank: 4,
     finalScore: 84.8,
+
     semanticScore: 85.0,
     keywordScore: 84.5,
+    semanticScoreWeight: 29.5,
+    keywordScoreWeight: 21.0,
+    experienceScoreWeight: 13.0,
+    projectScoreWeight: 13.0,
+    educationScoreWeight: 8.3,
+
+    cgpa: 8.3,
+    cgpaScale: 10,
+    totalInternships: 2,
+    relevantInternships: 2,
+    relevantExperienceYears: 2.0,
+    totalProjects: 3,
+    relevantProjectsCount: 2,
+
     requiredSkillsMatched: 4,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 1,
@@ -390,23 +442,30 @@ export const candidates: Candidate[] = [
     experience: '2.5 years of enterprise application development with Angular, Python, and SQL database management.',
     experienceYears: 2.5,
     explanation: 'Solid balance of Angular frontend development and Python data ingestion. Lacks direct React evidence; AWS is unevidenced.',
-    education: [{ degree: 'B.Tech in Information Technology', institution: 'Anna University', year: '2023' }],
+    education: [{ degree: 'B.Tech in Information Technology', institution: 'Anna University', year: '2023', cgpa: 8.3, cgpaScale: 10 }],
     projects: [
-      {
-        title: 'ERP Logistics Tracker',
-        description: 'Real-time dispatch and shipment status tracking portal built with Angular 15 and PostgreSQL.',
-        technologies: ['Angular', 'TypeScript', 'Python', 'SQL'],
-        period: '2023 - 2024'
-      }
+      { title: 'ERP Logistics Tracker', description: 'Real-time dispatch and shipment status tracking portal built with Angular 15 and PostgreSQL.', technologies: ['Angular', 'TypeScript', 'Python', 'SQL'], relevanceToJd: 'High', period: '2023 - 2024' },
+      { title: 'Customer Notification Service', description: 'Python event publisher service for dispatch alerts.', technologies: ['Python', 'SQL'], relevanceToJd: 'Moderate', period: '2023' },
+      { title: 'College Fest Registration App', description: 'PHP and MySQL event form.', technologies: ['PHP', 'SQL'], relevanceToJd: 'Low', period: '2022' }
     ],
     workHistory: [
-      {
-        company: 'LogiCore Systems',
-        role: 'Software Developer',
-        period: 'July 2023 – Present',
-        highlights: ['Designed dynamic Angular forms and client-side data grids.', 'Wrote Python REST endpoints and automated SQL reporting queries.']
-      }
+      { organization: 'LogiCore Systems', role: 'Software Developer', period: 'July 2023 – Present', isInternship: false, relevanceToJd: 'High', technologies: ['Angular', 'TypeScript', 'Python', 'SQL'], highlights: ['Designed dynamic Angular forms and client-side data grids.', 'Wrote Python REST endpoints.'] },
+      { organization: 'SpeedTrans Logistics', role: 'Developer Intern', period: 'Jan 2023 – June 2023', isInternship: true, relevanceToJd: 'High', technologies: ['Angular', 'SQL'], highlights: ['Assisted with Angular UI screens.'] }
     ],
+    claimsVsEvidence: [
+      { claim: 'Angular development', evidenceFound: 'LogiCore Systems enterprise UI', strength: 'Strong' },
+      { claim: 'Python API design', evidenceFound: 'REST endpoints and notification worker', strength: 'Moderate' },
+      { claim: 'React component design', evidenceFound: 'Not detected in resume', strength: 'Not Found' }
+    ],
+    evidenceIntegrity: {
+      coveragePercent: 82,
+      skillEvidenceLevel: 'Strong',
+      projectEvidenceLevel: 'Moderate',
+      experienceEvidenceLevel: 'Strong',
+      claimSpecificity: 'High',
+      timelineConsistency: 'Verified',
+      aiWritingSignal: 'Low'
+    },
     links: { linkedin: 'https://linkedin.com/in/karthik-srinivasan', github: 'https://github.com/karthiks-code' },
     verificationAlerts: [],
     verificationStatus: 'verified',
@@ -428,8 +487,23 @@ export const candidates: Candidate[] = [
     location: 'Remote, Singapore',
     rank: 5,
     finalScore: 82.6,
+
     semanticScore: 84.0,
     keywordScore: 80.5,
+    semanticScoreWeight: 29.0,
+    keywordScoreWeight: 20.0,
+    experienceScoreWeight: 13.0,
+    projectScoreWeight: 12.0,
+    educationScoreWeight: 8.6,
+
+    cgpa: 8.6,
+    cgpaScale: 10,
+    totalInternships: 1,
+    relevantInternships: 1,
+    relevantExperienceYears: 2.2,
+    totalProjects: 3,
+    relevantProjectsCount: 2,
+
     requiredSkillsMatched: 4,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 1,
@@ -439,9 +513,19 @@ export const candidates: Candidate[] = [
     experience: '3 years in modern web development, GraphQL API construction, and Python service integration.',
     experienceYears: 3.0,
     explanation: 'High semantic alignment on Python backend and React web applications. Angular experience is absent.',
-    education: [{ degree: 'B.S. in Computer Science', institution: 'NUS Singapore', year: '2022' }],
-    projects: [{ title: 'Fintech Transaction Portal', description: 'React single page app with Python GraphQL backend.', technologies: ['React', 'Python', 'SQL', 'Docker'] }],
-    workHistory: [{ company: 'FinPulse Labs', role: 'Full Stack Engineer', period: '2022 – Present', highlights: ['Maintained payment dashboards and transactional APIs.'] }],
+    education: [{ degree: 'B.S. in Computer Science', institution: 'NUS Singapore', year: '2022', cgpa: 8.6, cgpaScale: 10 }],
+    projects: [
+      { title: 'Fintech Transaction Portal', description: 'React single page app with Python GraphQL backend.', technologies: ['React', 'Python', 'SQL', 'Docker'], relevanceToJd: 'High', period: '2023 - 2024' },
+      { title: 'GraphQL API Gateway', description: 'Consolidated microservice endpoint in Python.', technologies: ['Python', 'Docker'], relevanceToJd: 'High', period: '2023' }
+    ],
+    workHistory: [
+      { organization: 'FinPulse Labs', role: 'Full Stack Engineer', period: '2022 – Present', isInternship: false, relevanceToJd: 'High', technologies: ['React', 'Python', 'SQL'], highlights: ['Maintained payment dashboards and transactional APIs.'] }
+    ],
+    claimsVsEvidence: [
+      { claim: 'Python microservices', evidenceFound: 'FinPulse payment pipeline + FastAPI gateway', strength: 'Strong' },
+      { claim: 'React state engineering', evidenceFound: 'Fintech Transaction portal in production', strength: 'Strong' }
+    ],
+    evidenceIntegrity: { coveragePercent: 80, skillEvidenceLevel: 'Strong', projectEvidenceLevel: 'Moderate', experienceEvidenceLevel: 'Moderate', claimSpecificity: 'High', timelineConsistency: 'Verified', aiWritingSignal: 'Low' },
     links: { github: 'https://github.com/sofiachen-dev' },
     verificationAlerts: [],
     verificationStatus: 'verified',
@@ -463,8 +547,23 @@ export const candidates: Candidate[] = [
     location: 'Bengaluru, India',
     rank: 6,
     finalScore: 80.1,
+
     semanticScore: 78.0,
     keywordScore: 83.0,
+    semanticScoreWeight: 27.5,
+    keywordScoreWeight: 20.5,
+    experienceScoreWeight: 13.0,
+    projectScoreWeight: 11.0,
+    educationScoreWeight: 8.1,
+
+    cgpa: 8.1,
+    cgpaScale: 10,
+    totalInternships: 1,
+    relevantInternships: 1,
+    relevantExperienceYears: 2.0,
+    totalProjects: 3,
+    relevantProjectsCount: 2,
+
     requiredSkillsMatched: 4,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 2,
@@ -474,9 +573,18 @@ export const candidates: Candidate[] = [
     experience: '3 years architecting Python backends, high-performance database caching, and enterprise Angular portals.',
     experienceYears: 3.0,
     explanation: 'Deep backend and database engineering with verified Angular admin dashboard experience. No React evidence.',
-    education: [{ degree: 'B.Tech in Computer Engineering', institution: 'IIIT Hyderabad', year: '2022' }],
-    projects: [{ title: 'Order Fulfillment Router', description: 'Automated order matching engine in Python with SQL queues.', technologies: ['Python', 'SQL', 'Angular', 'AWS'] }],
-    workHistory: [{ company: 'SupplyScale Inc.', role: 'Backend Engineer', period: '2022 – Present', highlights: ['Scaled Redis queues and automated Postgres indexing.'] }],
+    education: [{ degree: 'B.Tech in Computer Engineering', institution: 'IIIT Hyderabad', year: '2022', cgpa: 8.1, cgpaScale: 10 }],
+    projects: [
+      { title: 'Order Fulfillment Router', description: 'Automated order matching engine in Python with SQL queues.', technologies: ['Python', 'SQL', 'Angular', 'AWS'], relevanceToJd: 'High', period: '2023' }
+    ],
+    workHistory: [
+      { organization: 'SupplyScale Inc.', role: 'Backend Engineer', period: '2022 – Present', isInternship: false, relevanceToJd: 'High', technologies: ['Python', 'SQL', 'AWS'], highlights: ['Scaled Redis queues and automated Postgres indexing.'] }
+    ],
+    claimsVsEvidence: [
+      { claim: 'Python queue scalability', evidenceFound: 'SupplyScale high throughput order router', strength: 'Strong' },
+      { claim: 'Angular dashboard', evidenceFound: 'Internal operations portal', strength: 'Moderate' }
+    ],
+    evidenceIntegrity: { coveragePercent: 78, skillEvidenceLevel: 'Strong', projectEvidenceLevel: 'Moderate', experienceEvidenceLevel: 'Moderate', claimSpecificity: 'Moderate', timelineConsistency: 'Verified', aiWritingSignal: 'Low' },
     links: { linkedin: 'https://linkedin.com/in/danielkim-dev' },
     verificationAlerts: [],
     verificationStatus: 'verified',
@@ -500,6 +608,18 @@ export const candidates: Candidate[] = [
     finalScore: 78.4,
     semanticScore: 81.0,
     keywordScore: 75.0,
+    semanticScoreWeight: 28.0,
+    keywordScoreWeight: 18.5,
+    experienceScoreWeight: 11.5,
+    projectScoreWeight: 12.0,
+    educationScoreWeight: 8.4,
+    cgpa: 8.4,
+    cgpaScale: 10,
+    totalInternships: 1,
+    relevantInternships: 1,
+    relevantExperienceYears: 1.8,
+    totalProjects: 3,
+    relevantProjectsCount: 2,
     requiredSkillsMatched: 3,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 1,
@@ -508,10 +628,12 @@ export const candidates: Candidate[] = [
     missingSkills: ['Python', 'AWS', 'Docker'],
     experience: '2.5 years frontend and UI engineering across React, Angular, and relational SQL queries.',
     experienceYears: 2.5,
-    explanation: 'Solid frontend capabilities across both major SPA frameworks (React and Angular). Python backend evidence is limited to academic scripts.',
-    education: [{ degree: 'B.Tech in Computer Science', institution: 'CUSAT', year: '2023' }],
-    projects: [{ title: 'Customer Support Desk', description: 'Dual frontend modules in Angular and React.', technologies: ['Angular', 'React', 'TypeScript', 'SQL'] }],
-    workHistory: [{ company: 'Zeta Software', role: 'UI Developer', period: '2023 – Present', highlights: ['Engineered responsive client portals.'] }],
+    explanation: 'Solid frontend capabilities across both major SPA frameworks (React and Angular). Python backend evidence is limited.',
+    education: [{ degree: 'B.Tech in Computer Science', institution: 'CUSAT', year: '2023', cgpa: 8.4, cgpaScale: 10 }],
+    projects: [{ title: 'Customer Support Desk', description: 'Dual frontend modules in Angular and React.', technologies: ['Angular', 'React', 'TypeScript', 'SQL'], relevanceToJd: 'High', period: '2023' }],
+    workHistory: [{ organization: 'Zeta Software', role: 'UI Developer', period: '2023 – Present', isInternship: false, relevanceToJd: 'High', technologies: ['Angular', 'React'], highlights: ['Engineered responsive client portals.'] }],
+    claimsVsEvidence: [{ claim: 'Angular UI components', evidenceFound: 'Zeta Software customer portal', strength: 'Strong' }],
+    evidenceIntegrity: { coveragePercent: 74, skillEvidenceLevel: 'Moderate', projectEvidenceLevel: 'Moderate', experienceEvidenceLevel: 'Moderate', claimSpecificity: 'Moderate', timelineConsistency: 'Verified', aiWritingSignal: 'Low' },
     links: {},
     verificationAlerts: [],
     verificationStatus: 'verified',
@@ -535,6 +657,18 @@ export const candidates: Candidate[] = [
     finalScore: 76.5,
     semanticScore: 74.0,
     keywordScore: 80.0,
+    semanticScoreWeight: 26.0,
+    keywordScoreWeight: 20.0,
+    experienceScoreWeight: 12.0,
+    projectScoreWeight: 10.5,
+    educationScoreWeight: 8.0,
+    cgpa: 8.0,
+    cgpaScale: 10,
+    totalInternships: 2,
+    relevantInternships: 1,
+    relevantExperienceYears: 2.0,
+    totalProjects: 2,
+    relevantProjectsCount: 2,
     requiredSkillsMatched: 3,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 2,
@@ -544,9 +678,11 @@ export const candidates: Candidate[] = [
     experience: '3 years in infrastructure automation, Python scripting, and cloud databases.',
     experienceYears: 3.0,
     explanation: 'Superb cloud and DevOps capabilities with AWS, Docker, and Python pipelines. Minimal frontend evidence.',
-    education: [{ degree: 'B.E. in Information Science', institution: 'BMS College of Engineering', year: '2022' }],
-    projects: [{ title: 'Terraform AWS Orchestrator', description: 'Infrastructure-as-code automation.', technologies: ['Python', 'AWS', 'Docker', 'SQL'] }],
-    workHistory: [{ company: 'CloudOps Matrix', role: 'DevOps Engineer', period: '2022 – Present', highlights: ['Maintained Kubernetes clusters and AWS VPCs.'] }],
+    education: [{ degree: 'B.E. in Information Science', institution: 'BMS College of Engineering', year: '2022', cgpa: 8.0, cgpaScale: 10 }],
+    projects: [{ title: 'Terraform AWS Orchestrator', description: 'Infrastructure-as-code automation.', technologies: ['Python', 'AWS', 'Docker', 'SQL'], relevanceToJd: 'High', period: '2023' }],
+    workHistory: [{ organization: 'CloudOps Matrix', role: 'DevOps Engineer', period: '2022 – Present', isInternship: false, relevanceToJd: 'High', technologies: ['Python', 'AWS', 'Docker'], highlights: ['Maintained Kubernetes clusters and AWS VPCs.'] }],
+    claimsVsEvidence: [{ claim: 'AWS infrastructure', evidenceFound: 'CloudOps Matrix production environments', strength: 'Strong' }],
+    evidenceIntegrity: { coveragePercent: 72, skillEvidenceLevel: 'Moderate', projectEvidenceLevel: 'Moderate', experienceEvidenceLevel: 'Moderate', claimSpecificity: 'Moderate', timelineConsistency: 'Verified', aiWritingSignal: 'Low' },
     links: { github: 'https://github.com/leomartin-ops' },
     verificationAlerts: [],
     verificationStatus: 'verified',
@@ -570,6 +706,18 @@ export const candidates: Candidate[] = [
     finalScore: 73.8,
     semanticScore: 76.0,
     keywordScore: 71.0,
+    semanticScoreWeight: 26.5,
+    keywordScoreWeight: 17.5,
+    experienceScoreWeight: 11.0,
+    projectScoreWeight: 10.5,
+    educationScoreWeight: 8.3,
+    cgpa: 8.3,
+    cgpaScale: 10,
+    totalInternships: 2,
+    relevantInternships: 1,
+    relevantExperienceYears: 1.5,
+    totalProjects: 2,
+    relevantProjectsCount: 1,
     requiredSkillsMatched: 4,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 0,
@@ -579,9 +727,11 @@ export const candidates: Candidate[] = [
     experience: '2 years working across Python REST backends and dual Angular/React applications.',
     experienceYears: 2.0,
     explanation: 'Good foundation in both Angular and React alongside Python APIs. Cloud deployments have not been evidenced.',
-    education: [{ degree: 'B.Tech in Computer Science', institution: 'JNTU Hyderabad', year: '2023' }],
-    projects: [{ title: 'Vendor Management Hub', description: 'Angular 14 portal connecting to Python Flask service.', technologies: ['Angular', 'Python', 'SQL'] }],
-    workHistory: [{ company: 'InnoTech Solutions', role: 'Junior Software Engineer', period: '2023 – Present', highlights: ['Created CRUD views and data validation forms.'] }],
+    education: [{ degree: 'B.Tech in Computer Science', institution: 'JNTU Hyderabad', year: '2023', cgpa: 8.3, cgpaScale: 10 }],
+    projects: [{ title: 'Vendor Management Hub', description: 'Angular 14 portal connecting to Python Flask service.', technologies: ['Angular', 'Python', 'SQL'], relevanceToJd: 'High', period: '2023' }],
+    workHistory: [{ organization: 'InnoTech Solutions', role: 'Junior Software Engineer', period: '2023 – Present', isInternship: false, relevanceToJd: 'High', technologies: ['Angular', 'Python'], highlights: ['Created CRUD views and data validation forms.'] }],
+    claimsVsEvidence: [{ claim: 'Angular UI development', evidenceFound: 'Vendor hub project', strength: 'Strong' }],
+    evidenceIntegrity: { coveragePercent: 70, skillEvidenceLevel: 'Moderate', projectEvidenceLevel: 'Moderate', experienceEvidenceLevel: 'Limited', claimSpecificity: 'Moderate', timelineConsistency: 'Verified', aiWritingSignal: 'Low' },
     links: { linkedin: 'https://linkedin.com/in/aishakhan-dev' },
     verificationAlerts: [],
     verificationStatus: 'verified',
@@ -605,6 +755,18 @@ export const candidates: Candidate[] = [
     finalScore: 71.2,
     semanticScore: 69.0,
     keywordScore: 74.0,
+    semanticScoreWeight: 24.0,
+    keywordScoreWeight: 18.5,
+    experienceScoreWeight: 11.0,
+    projectScoreWeight: 9.8,
+    educationScoreWeight: 7.9,
+    cgpa: 7.9,
+    cgpaScale: 10,
+    totalInternships: 1,
+    relevantInternships: 0,
+    relevantExperienceYears: 1.5,
+    totalProjects: 2,
+    relevantProjectsCount: 1,
     requiredSkillsMatched: 3,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 1,
@@ -614,9 +776,11 @@ export const candidates: Candidate[] = [
     experience: '2 years backend engineering with Python, relational schemas, and container builds.',
     experienceYears: 2.0,
     explanation: 'Solid backend and SQL developer. Does not currently show Angular or React web framework experience.',
-    education: [{ degree: 'B.S. in Software Engineering', institution: 'BITS Pilani', year: '2023' }],
-    projects: [{ title: 'Document Search Indexer', description: 'Python full-text indexing service using PostgreSQL.', technologies: ['Python', 'SQL', 'Docker'] }],
-    workHistory: [{ company: 'DataStream Technologies', role: 'Software Engineer', period: '2023 – Present', highlights: ['Developed microservice endpoints and SQL queries.'] }],
+    education: [{ degree: 'B.S. in Software Engineering', institution: 'BITS Pilani', year: '2023', cgpa: 7.9, cgpaScale: 10 }],
+    projects: [{ title: 'Document Search Indexer', description: 'Python full-text indexing service using PostgreSQL.', technologies: ['Python', 'SQL', 'Docker'], relevanceToJd: 'Moderate', period: '2023' }],
+    workHistory: [{ organization: 'DataStream Technologies', role: 'Software Engineer', period: '2023 – Present', isInternship: false, relevanceToJd: 'Moderate', technologies: ['Python', 'SQL'], highlights: ['Developed microservice endpoints and SQL queries.'] }],
+    claimsVsEvidence: [{ claim: 'Python backend', evidenceFound: 'Document indexer service', strength: 'Moderate' }],
+    evidenceIntegrity: { coveragePercent: 68, skillEvidenceLevel: 'Moderate', projectEvidenceLevel: 'Limited', experienceEvidenceLevel: 'Moderate', claimSpecificity: 'Moderate', timelineConsistency: 'Verified', aiWritingSignal: 'Low' },
     links: {},
     verificationAlerts: [],
     verificationStatus: 'verified',
@@ -640,6 +804,18 @@ export const candidates: Candidate[] = [
     finalScore: 68.0,
     semanticScore: 71.0,
     keywordScore: 65.0,
+    semanticScoreWeight: 25.0,
+    keywordScoreWeight: 16.0,
+    experienceScoreWeight: 10.0,
+    projectScoreWeight: 9.5,
+    educationScoreWeight: 7.5,
+    cgpa: 7.5,
+    cgpaScale: 10,
+    totalInternships: 1,
+    relevantInternships: 1,
+    relevantExperienceYears: 1.5,
+    totalProjects: 2,
+    relevantProjectsCount: 1,
     requiredSkillsMatched: 3,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 0,
@@ -649,9 +825,11 @@ export const candidates: Candidate[] = [
     experience: '2 years focusing on React component libraries, CSS architectures, and lightweight SQL queries.',
     experienceYears: 2.0,
     explanation: 'Competent React and TypeScript developer with high design fidelity. Lacks Python backend and Angular framework evidence.',
-    education: [{ degree: 'B.Des & Minor in Computing', institution: 'NID Ahmedabad', year: '2023' }],
-    projects: [{ title: 'SaaS Design System', description: 'Reusable React component kit with TypeScript.', technologies: ['React', 'TypeScript', 'CSS'] }],
-    workHistory: [{ company: 'PixelWave Studio', role: 'UI Engineer', period: '2023 – Present', highlights: ['Created accessible design tokens and web forms.'] }],
+    education: [{ degree: 'B.Des & Minor in Computing', institution: 'NID Ahmedabad', year: '2023', cgpa: 7.5, cgpaScale: 10 }],
+    projects: [{ title: 'SaaS Design System', description: 'Reusable React component kit with TypeScript.', technologies: ['React', 'TypeScript', 'CSS'], relevanceToJd: 'Moderate', period: '2023' }],
+    workHistory: [{ organization: 'PixelWave Studio', role: 'UI Engineer', period: '2023 – Present', isInternship: false, relevanceToJd: 'Moderate', technologies: ['React', 'TypeScript'], highlights: ['Created accessible design tokens.'] }],
+    claimsVsEvidence: [{ claim: 'React design systems', evidenceFound: 'PixelWave component kit', strength: 'Moderate' }],
+    evidenceIntegrity: { coveragePercent: 64, skillEvidenceLevel: 'Moderate', projectEvidenceLevel: 'Limited', experienceEvidenceLevel: 'Limited', claimSpecificity: 'Moderate', timelineConsistency: 'Verified', aiWritingSignal: 'Low' },
     links: { portfolio: 'https://norawilliams.design' },
     verificationAlerts: [],
     verificationStatus: 'verified',
@@ -675,6 +853,18 @@ export const candidates: Candidate[] = [
     finalScore: 65.5,
     semanticScore: 64.0,
     keywordScore: 67.0,
+    semanticScoreWeight: 22.4,
+    keywordScoreWeight: 16.8,
+    experienceScoreWeight: 9.8,
+    projectScoreWeight: 8.8,
+    educationScoreWeight: 7.7,
+    cgpa: 7.7,
+    cgpaScale: 10,
+    totalInternships: 2,
+    relevantInternships: 1,
+    relevantExperienceYears: 1.0,
+    totalProjects: 2,
+    relevantProjectsCount: 1,
     requiredSkillsMatched: 3,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 1,
@@ -684,9 +874,11 @@ export const candidates: Candidate[] = [
     experience: '1.5 years developing enterprise Angular web modules and cloud database schemas.',
     experienceYears: 1.5,
     explanation: 'Shows verified Angular and TypeScript usage in banking software projects. Python backend experience is missing.',
-    education: [{ degree: 'B.E. in Computer Science', institution: 'MIT World Peace University', year: '2024' }],
-    projects: [{ title: 'Banking Loan Calculator', description: 'Angular loan EMI calculator with SQL persistent audit log.', technologies: ['Angular', 'TypeScript', 'SQL'] }],
-    workHistory: [{ company: 'Finserve IT', role: 'Junior Engineer', period: '2024 – Present', highlights: ['Maintained Angular components.'] }],
+    education: [{ degree: 'B.E. in Computer Science', institution: 'MIT World Peace University', year: '2024', cgpa: 7.7, cgpaScale: 10 }],
+    projects: [{ title: 'Banking Loan Calculator', description: 'Angular loan EMI calculator with SQL audit log.', technologies: ['Angular', 'TypeScript', 'SQL'], relevanceToJd: 'Moderate', period: '2024' }],
+    workHistory: [{ organization: 'Finserve IT', role: 'Junior Engineer', period: '2024 – Present', isInternship: false, relevanceToJd: 'Moderate', technologies: ['Angular', 'SQL'], highlights: ['Maintained Angular components.'] }],
+    claimsVsEvidence: [{ claim: 'Angular banking modules', evidenceFound: 'Loan calculator project', strength: 'Moderate' }],
+    evidenceIntegrity: { coveragePercent: 62, skillEvidenceLevel: 'Moderate', projectEvidenceLevel: 'Limited', experienceEvidenceLevel: 'Limited', claimSpecificity: 'Moderate', timelineConsistency: 'Verified', aiWritingSignal: 'Low' },
     links: {},
     verificationAlerts: [],
     verificationStatus: 'verified',
@@ -710,6 +902,18 @@ export const candidates: Candidate[] = [
     finalScore: 62.3,
     semanticScore: 66.0,
     keywordScore: 59.0,
+    semanticScoreWeight: 23.0,
+    keywordScoreWeight: 14.8,
+    experienceScoreWeight: 9.0,
+    projectScoreWeight: 8.0,
+    educationScoreWeight: 7.5,
+    cgpa: 7.5,
+    cgpaScale: 10,
+    totalInternships: 1,
+    relevantInternships: 0,
+    relevantExperienceYears: 1.0,
+    totalProjects: 2,
+    relevantProjectsCount: 1,
     requiredSkillsMatched: 2,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 1,
@@ -719,9 +923,11 @@ export const candidates: Candidate[] = [
     experience: '2 years in Python data processing pipelines and SQL warehouse querying.',
     experienceYears: 2.0,
     explanation: 'Strong data-layer credentials with Python and SQL. Missing modern frontend framework capabilities (neither Angular nor React found).',
-    education: [{ degree: 'M.Sc in Data Science', institution: 'Chennai Mathematical Institute', year: '2023' }],
-    projects: [{ title: 'Customer Churn Predictor', description: 'Python batch model exporting to SQL warehouse.', technologies: ['Python', 'SQL', 'AWS'] }],
-    workHistory: [{ company: 'MetricsPro Analytics', role: 'Data Analyst', period: '2023 – Present', highlights: ['Wrote SQL queries for analytics dashboards.'] }],
+    education: [{ degree: 'M.Sc in Data Science', institution: 'Chennai Mathematical Institute', year: '2023', cgpa: 7.5, cgpaScale: 10 }],
+    projects: [{ title: 'Customer Churn Predictor', description: 'Python batch model exporting to SQL warehouse.', technologies: ['Python', 'SQL', 'AWS'], relevanceToJd: 'Moderate', period: '2023' }],
+    workHistory: [{ organization: 'MetricsPro Analytics', role: 'Data Analyst', period: '2023 – Present', isInternship: false, relevanceToJd: 'Moderate', technologies: ['Python', 'SQL'], highlights: ['Wrote SQL queries for analytics dashboards.'] }],
+    claimsVsEvidence: [{ claim: 'Python analytics', evidenceFound: 'Churn prediction model', strength: 'Moderate' }],
+    evidenceIntegrity: { coveragePercent: 58, skillEvidenceLevel: 'Limited', projectEvidenceLevel: 'Limited', experienceEvidenceLevel: 'Limited', claimSpecificity: 'Moderate', timelineConsistency: 'Verified', aiWritingSignal: 'Low' },
     links: {},
     verificationAlerts: [],
     verificationStatus: 'verified',
@@ -745,6 +951,18 @@ export const candidates: Candidate[] = [
     finalScore: 59.4,
     semanticScore: 57.0,
     keywordScore: 62.0,
+    semanticScoreWeight: 20.0,
+    keywordScoreWeight: 15.5,
+    experienceScoreWeight: 8.5,
+    projectScoreWeight: 8.0,
+    educationScoreWeight: 7.4,
+    cgpa: 7.4,
+    cgpaScale: 10,
+    totalInternships: 1,
+    relevantInternships: 0,
+    relevantExperienceYears: 0.8,
+    totalProjects: 2,
+    relevantProjectsCount: 1,
     requiredSkillsMatched: 2,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 1,
@@ -754,9 +972,11 @@ export const candidates: Candidate[] = [
     experience: '1.5 years enterprise software development with Python and relational databases.',
     experienceYears: 1.5,
     explanation: 'Good basic programming and database understanding. Frontend and cloud frameworks remain significant growth areas.',
-    education: [{ degree: 'B.Tech in Information Technology', institution: 'Kerala University', year: '2024' }],
-    projects: [{ title: 'Inventory API', description: 'Python REST API with PostgreSQL.', technologies: ['Python', 'SQL', 'Docker'] }],
-    workHistory: [{ company: 'QuickServe Tech', role: 'Junior Developer', period: '2024 – Present', highlights: ['Wrote database migration scripts.'] }],
+    education: [{ degree: 'B.Tech in Information Technology', institution: 'Kerala University', year: '2024', cgpa: 7.4, cgpaScale: 10 }],
+    projects: [{ title: 'Inventory API', description: 'Python REST API with PostgreSQL.', technologies: ['Python', 'SQL', 'Docker'], relevanceToJd: 'Moderate', period: '2024' }],
+    workHistory: [{ organization: 'QuickServe Tech', role: 'Junior Developer', period: '2024 – Present', isInternship: false, relevanceToJd: 'Moderate', technologies: ['Python', 'SQL'], highlights: ['Wrote database migration scripts.'] }],
+    claimsVsEvidence: [{ claim: 'Python backend', evidenceFound: 'Inventory API coursework', strength: 'Moderate' }],
+    evidenceIntegrity: { coveragePercent: 54, skillEvidenceLevel: 'Limited', projectEvidenceLevel: 'Limited', experienceEvidenceLevel: 'Limited', claimSpecificity: 'Limited', timelineConsistency: 'Verified', aiWritingSignal: 'Low' },
     links: {},
     verificationAlerts: [],
     verificationStatus: 'verified',
@@ -780,6 +1000,18 @@ export const candidates: Candidate[] = [
     finalScore: 55.7,
     semanticScore: 61.0,
     keywordScore: 50.0,
+    semanticScoreWeight: 21.0,
+    keywordScoreWeight: 12.5,
+    experienceScoreWeight: 7.5,
+    projectScoreWeight: 7.5,
+    educationScoreWeight: 7.2,
+    cgpa: 7.2,
+    cgpaScale: 10,
+    totalInternships: 1,
+    relevantInternships: 0,
+    relevantExperienceYears: 0.5,
+    totalProjects: 1,
+    relevantProjectsCount: 1,
     requiredSkillsMatched: 2,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 0,
@@ -789,9 +1021,11 @@ export const candidates: Candidate[] = [
     experience: '1.5 years frontend web styling and React component implementation.',
     experienceYears: 1.5,
     explanation: 'Shows solid modern web styling and React components, but lacks backend (Python), database (SQL), and enterprise Angular signals.',
-    education: [{ degree: 'B.Sc in Information Technology', institution: 'Mumbai University', year: '2024' }],
-    projects: [{ title: 'Brand Landing Experience', description: 'React animated site with TypeScript.', technologies: ['React', 'TypeScript', 'CSS3'] }],
-    workHistory: [{ company: 'Nova Creative Labs', role: 'Junior UI Engineer', period: '2024 – Present', highlights: ['Built landing page modules.'] }],
+    education: [{ degree: 'B.Sc in Information Technology', institution: 'Mumbai University', year: '2024', cgpa: 7.2, cgpaScale: 10 }],
+    projects: [{ title: 'Brand Landing Experience', description: 'React animated site with TypeScript.', technologies: ['React', 'TypeScript', 'CSS3'], relevanceToJd: 'Moderate', period: '2024' }],
+    workHistory: [{ organization: 'Nova Creative Labs', role: 'Junior UI Engineer', period: '2024 – Present', isInternship: false, relevanceToJd: 'Moderate', technologies: ['React'], highlights: ['Built landing page modules.'] }],
+    claimsVsEvidence: [{ claim: 'React styling', evidenceFound: 'Landing page module', strength: 'Moderate' }],
+    evidenceIntegrity: { coveragePercent: 50, skillEvidenceLevel: 'Limited', projectEvidenceLevel: 'Limited', experienceEvidenceLevel: 'Limited', claimSpecificity: 'Limited', timelineConsistency: 'Verified', aiWritingSignal: 'Low' },
     links: {},
     verificationAlerts: [],
     verificationStatus: 'verified',
@@ -815,6 +1049,18 @@ export const candidates: Candidate[] = [
     finalScore: 52.8,
     semanticScore: 51.0,
     keywordScore: 55.0,
+    semanticScoreWeight: 18.0,
+    keywordScoreWeight: 13.8,
+    experienceScoreWeight: 7.5,
+    projectScoreWeight: 6.5,
+    educationScoreWeight: 7.0,
+    cgpa: 7.0,
+    cgpaScale: 10,
+    totalInternships: 0,
+    relevantInternships: 0,
+    relevantExperienceYears: 0.5,
+    totalProjects: 1,
+    relevantProjectsCount: 0,
     requiredSkillsMatched: 2,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 1,
@@ -824,9 +1070,11 @@ export const candidates: Candidate[] = [
     experience: '2 years providing IT operations support, Linux administration, and Python automation.',
     experienceYears: 2.0,
     explanation: 'Basic system administration with Python scripts and SQL log queries. Limited web application framework experience.',
-    education: [{ degree: 'B.Sc in Computer Science', institution: 'Christ University', year: '2023' }],
-    projects: [{ title: 'Log Monitor Automation', description: 'Python script scraping server logs into SQL.', technologies: ['Python', 'SQL', 'Docker'] }],
-    workHistory: [{ company: 'Apex IT Support', role: 'Support Specialist', period: '2023 – Present', highlights: ['Automated routine file backups.'] }],
+    education: [{ degree: 'B.Sc in Computer Science', institution: 'Christ University', year: '2023', cgpa: 7.0, cgpaScale: 10 }],
+    projects: [{ title: 'Log Monitor Automation', description: 'Python script scraping server logs into SQL.', technologies: ['Python', 'SQL', 'Docker'], relevanceToJd: 'Low', period: '2023' }],
+    workHistory: [{ organization: 'Apex IT Support', role: 'Support Specialist', period: '2023 – Present', isInternship: false, relevanceToJd: 'Low', technologies: ['Python'], highlights: ['Automated routine file backups.'] }],
+    claimsVsEvidence: [{ claim: 'Python scripting', evidenceFound: 'Log backup script', strength: 'Moderate' }],
+    evidenceIntegrity: { coveragePercent: 48, skillEvidenceLevel: 'Limited', projectEvidenceLevel: 'Limited', experienceEvidenceLevel: 'Limited', claimSpecificity: 'Limited', timelineConsistency: 'Verified', aiWritingSignal: 'Low' },
     links: {},
     verificationAlerts: [],
     verificationStatus: 'verified',
@@ -850,6 +1098,18 @@ export const candidates: Candidate[] = [
     finalScore: 48.6,
     semanticScore: 52.0,
     keywordScore: 45.0,
+    semanticScoreWeight: 18.0,
+    keywordScoreWeight: 11.2,
+    experienceScoreWeight: 6.5,
+    projectScoreWeight: 6.0,
+    educationScoreWeight: 6.9,
+    cgpa: 6.9,
+    cgpaScale: 10,
+    totalInternships: 1,
+    relevantInternships: 0,
+    relevantExperienceYears: 0.2,
+    totalProjects: 1,
+    relevantProjectsCount: 0,
     requiredSkillsMatched: 1,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 0,
@@ -859,9 +1119,11 @@ export const candidates: Candidate[] = [
     experience: '1 year academic foundation in database management and object-oriented software principles.',
     experienceYears: 1.0,
     explanation: 'Entry-level candidate with basic SQL database coursework. Requires training across modern frontend and backend stacks.',
-    education: [{ degree: 'B.Tech in Computer Science', institution: 'SRM Institute', year: '2024' }],
-    projects: [{ title: 'Library Catalog System', description: 'Academic database project.', technologies: ['SQL', 'Java'] }],
-    workHistory: [{ company: 'Infotech Campus Trainee', role: 'Graduate Engineer Trainee', period: '2024 – Present', highlights: ['Completed foundational programming modules.'] }],
+    education: [{ degree: 'B.Tech in Computer Science', institution: 'SRM Institute', year: '2024', cgpa: 6.9, cgpaScale: 10 }],
+    projects: [{ title: 'Library Catalog System', description: 'Academic database project.', technologies: ['SQL', 'Java'], relevanceToJd: 'Low', period: '2024' }],
+    workHistory: [{ organization: 'Infotech Campus Trainee', role: 'Graduate Engineer Trainee', period: '2024 – Present', isInternship: false, relevanceToJd: 'Low', technologies: ['SQL'], highlights: ['Completed foundational programming modules.'] }],
+    claimsVsEvidence: [{ claim: 'Database design', evidenceFound: 'College library project', strength: 'Limited' }],
+    evidenceIntegrity: { coveragePercent: 44, skillEvidenceLevel: 'Limited', projectEvidenceLevel: 'Limited', experienceEvidenceLevel: 'Limited', claimSpecificity: 'Limited', timelineConsistency: 'Verified', aiWritingSignal: 'Low' },
     links: {},
     verificationAlerts: [],
     verificationStatus: 'verified',
@@ -885,6 +1147,18 @@ export const candidates: Candidate[] = [
     finalScore: 39.5,
     semanticScore: 42.0,
     keywordScore: 37.0,
+    semanticScoreWeight: 14.5,
+    keywordScoreWeight: 9.2,
+    experienceScoreWeight: 5.0,
+    projectScoreWeight: 5.0,
+    educationScoreWeight: 5.8,
+    cgpa: 6.5,
+    cgpaScale: 10,
+    totalInternships: 1,
+    relevantInternships: 0,
+    relevantExperienceYears: 0.1,
+    totalProjects: 1,
+    relevantProjectsCount: 0,
     requiredSkillsMatched: 1,
     requiredSkillsTotal: 5,
     preferredSkillsMatched: 0,
@@ -894,9 +1168,11 @@ export const candidates: Candidate[] = [
     experience: '6 months internship exposure to HTML, basic scripting, and database entry.',
     experienceYears: 0.5,
     explanation: 'Initial internship experience with basic web markup and SQL queries. Significant skill gaps across core requirements for a Senior role.',
-    education: [{ degree: 'B.C.A in Computer Applications', institution: 'Amity University', year: '2025' }],
-    projects: [{ title: 'Student Management Form', description: 'Simple HTML form with relational database entry.', technologies: ['HTML', 'SQL'] }],
-    workHistory: [{ company: 'StartSphere Technologies', role: 'Web Intern', period: 'January 2025 – Present', highlights: ['Assisted in frontend form entry.'] }],
+    education: [{ degree: 'B.C.A in Computer Applications', institution: 'Amity University', year: '2025', cgpa: 6.5, cgpaScale: 10 }],
+    projects: [{ title: 'Student Management Form', description: 'Simple HTML form with relational database entry.', technologies: ['HTML', 'SQL'], relevanceToJd: 'Low', period: '2025' }],
+    workHistory: [{ organization: 'StartSphere Technologies', role: 'Web Intern', period: 'January 2025 – Present', isInternship: true, relevanceToJd: 'Low', technologies: ['HTML'], highlights: ['Assisted in frontend form entry.'] }],
+    claimsVsEvidence: [{ claim: 'SQL queries', evidenceFound: 'Student form data entry', strength: 'Limited' }],
+    evidenceIntegrity: { coveragePercent: 36, skillEvidenceLevel: 'Limited', projectEvidenceLevel: 'Limited', experienceEvidenceLevel: 'Limited', claimSpecificity: 'Limited', timelineConsistency: 'Verified', aiWritingSignal: 'Low' },
     links: {},
     verificationAlerts: [],
     verificationStatus: 'verified',
@@ -912,13 +1188,17 @@ export const candidates: Candidate[] = [
   }
 ];
 
+export const jobSkills: JobSkill[] = computeJobSkills(candidates);
+
 export const demoAnalysis: Analysis = {
   id: 'analysis_123',
   jobTitle: 'Senior Full Stack Engineer',
   jobDescriptionFileName: 'Full_Stack_Developer_JD.pdf',
-  candidateCount: 18,
+  candidateCount: candidates.length,
   status: 'completed',
   createdAt: 'Sep 12, 2026 · 10:42 AM',
   requiredSkills: jobSkills,
   candidates
 };
+
+export { computeJobSkills };

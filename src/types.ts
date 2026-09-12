@@ -40,14 +40,20 @@ export interface CandidateProject {
   title: string;
   description: string;
   technologies: string[];
+  relevanceToJd: 'High' | 'Moderate' | 'Low';
   period?: string;
+  contribution?: string;
+  githubUrl?: string;
 }
 
 export interface CandidateExperience {
-  company: string;
+  organization: string;
   role: string;
   period: string;
+  isInternship?: boolean;
   isOverlap?: boolean;
+  relevanceToJd: 'High' | 'Moderate' | 'Low';
+  technologies: string[];
   highlights: string[];
 }
 
@@ -55,6 +61,8 @@ export interface CandidateEducation {
   degree: string;
   institution: string;
   year: string;
+  cgpa?: number;
+  cgpaScale?: number;
 }
 
 export interface CandidateLinks {
@@ -69,6 +77,22 @@ export interface ExternalEvidence {
   profileHealth?: string;
 }
 
+export interface ClaimVsEvidence {
+  claim: string;
+  evidenceFound: string;
+  strength: 'Strong' | 'Moderate' | 'Limited' | 'Not Found';
+}
+
+export interface EvidenceIntegrity {
+  coveragePercent: number;
+  skillEvidenceLevel: 'Strong' | 'Moderate' | 'Limited';
+  projectEvidenceLevel: 'Strong' | 'Moderate' | 'Limited';
+  experienceEvidenceLevel: 'Strong' | 'Moderate' | 'Limited';
+  claimSpecificity: 'High' | 'Moderate' | 'Limited';
+  timelineConsistency: 'Verified' | 'Review Recommended';
+  aiWritingSignal: 'Low' | 'Moderate' | 'Insufficient Evidence';
+}
+
 export interface Candidate {
   id: string;
   name: string;
@@ -77,9 +101,26 @@ export interface Candidate {
   phone?: string;
   location: string;
   rank: number;
-  finalScore: number;
-  semanticScore: number;
-  keywordScore: number;
+  finalScore: number; // 0 - 100
+
+  // 100-Point Baseline Evaluation Model Breakdown
+  semanticScore: number; // Raw semantic alignment percentage
+  keywordScore: number; // Raw keyword/skill alignment percentage
+  semanticScoreWeight: number; // Points out of 35 (35% weight)
+  keywordScoreWeight: number; // Points out of 25 (25% weight)
+  experienceScoreWeight: number; // Points out of 15 (15% weight)
+  projectScoreWeight: number; // Points out of 15 (15% weight)
+  educationScoreWeight: number; // Points out of 10 (10% weight)
+
+  // Specific Candidate Dimensions
+  cgpa: number; // e.g. 9.1
+  cgpaScale: number; // e.g. 10
+  totalInternships: number;
+  relevantInternships: number;
+  relevantExperienceYears: number;
+  totalProjects: number;
+  relevantProjectsCount: number;
+
   requiredSkillsMatched: number;
   requiredSkillsTotal: number;
   preferredSkillsMatched: number;
@@ -87,6 +128,8 @@ export interface Candidate {
   matchedSkills: string[];
   missingSkills: string[];
   skillEvidence: Record<string, SkillEvidence>;
+  claimsVsEvidence: ClaimVsEvidence[];
+  evidenceIntegrity: EvidenceIntegrity;
   explanation: string;
   experience: string;
   experienceYears: number;
@@ -124,4 +167,5 @@ export interface HiringWeights {
   experience: number; // 0-100
   projects: number; // 0-100
   requiredSkills: number; // 0-100
+  education: number; // 0-100
 }
