@@ -46,6 +46,19 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother, onBack
     }
   };
 
+  const formatFraudTitle = (type?: string): string => {
+    switch (type) {
+      case 'white_font': return 'Invisible White-Font Layer (RGB 255)';
+      case 'tiny_text': return '1.0pt Micro-Font ATS Keyword Injection';
+      case 'off_margin_text': return 'Off-Margin Injected Metadata';
+      case 'hidden_behind_image': return 'Text Hidden Behind Image Layer';
+      case 'prompt_injection': return 'Adversarial Prompt Injection Attempt';
+      case 'timeline_overlap':
+      case 'timeline_anomaly': return 'Timeline Chronological Conflict';
+      default: return 'Formatting Anomaly Detected';
+    }
+  };
+
   const evidenceLevelBadge = (level: SkillEvidence['level']) => {
     switch (level) {
       case 'strong':
@@ -611,31 +624,37 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother, onBack
                   <b>Anomaly Warning:</b> Concealed text, typography manipulations, or adversarial prompt injections were identified in this document. These items were purged prior to candidate ranking.
                 </p>
 
-                {alerts.map((alert, idx) => (
-                  <div key={alert.id || idx} className="alert-item">
-                    <div className="flex items-center justify-between mb-1">
-                      <b className="alert-title">{alert.title}</b>
-                      {alert.severity && (
-                        <span className={`alert-severity-chip ${alert.severity}`}>
-                          {alert.severity.toUpperCase()}
+                {alerts.map((alert: any, idx: number) => {
+                  const fraudType = alert.type || alert.fraudType || 'formatting_anomaly';
+                  const title = alert.title || formatFraudTitle(fraudType);
+                  const message = alert.message || alert.description || alert.impact || 'Suspicious hidden content or formatting anomaly detected in document layer.';
+                  const detected = alert.detectedValue || alert.detectedText || alert.extractedText || '';
+                  const severity = alert.severity || 'warning';
+
+                  return (
+                    <div key={alert.id || idx} className="alert-item">
+                      <div className="flex items-center justify-between mb-1">
+                        <b className="alert-title">{title}</b>
+                        <span className={`alert-severity-chip ${severity}`}>
+                          {String(severity).toUpperCase()}
                         </span>
+                      </div>
+                      <p className="alert-message">{message}</p>
+                      {detected && (
+                        <div className="timeline-detail-box">
+                          <small>Detected Hidden / Injected Content:</small>
+                          <code>{detected}</code>
+                        </div>
+                      )}
+                      {alert.timelineDetails && (
+                        <div className="timeline-detail-box">
+                          <small>Detected Overlap Range:</small>
+                          <code>{alert.timelineDetails}</code>
+                        </div>
                       )}
                     </div>
-                    <p className="alert-message">{alert.message}</p>
-                    {alert.detectedValue && (
-                      <div className="timeline-detail-box">
-                        <small>Detected Hidden / Injected Content:</small>
-                        <code>{alert.detectedValue}</code>
-                      </div>
-                    )}
-                    {alert.timelineDetails && (
-                      <div className="timeline-detail-box">
-                        <small>Detected Overlap Range:</small>
-                        <code>{alert.timelineDetails}</code>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
 
                 <div className="score-independence-notice">
                   <div className="notice-icon">i</div>
