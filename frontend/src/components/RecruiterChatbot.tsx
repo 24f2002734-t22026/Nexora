@@ -6,11 +6,9 @@ import {
   Bot, 
   User as UserIcon, 
   Mic, 
-  MicOff, 
   Square, 
   Radio, 
-  Loader2,
-  Volume2
+  Loader2 
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { chatWithRecruiter } from '../services/api';
@@ -36,14 +34,12 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
 
   // STT Voice Recording State
   const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [wsConnected, setWsConnected] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const speechRecognitionRef = useRef<any>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<any>(null);
 
   // Initialize WebSocket connection when drawer opens
   useEffect(() => {
@@ -68,17 +64,15 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data.event === 'final_transcript') {
-            setIsTranscribing(false);
+          
+          // Real-time Partial or Final Transcription streamed to input box
+          if (data.event === 'partial_transcript' && data.text) {
+            setInput(data.text.trim());
+          } else if (data.event === 'final_transcript') {
             if (data.text && data.text.trim()) {
-              setInput((prev) => (prev ? `${prev} ${data.text.trim()}` : data.text.trim()));
-              toast.success(`Transcribed via Moonshine Base (${data.latency_ms || 35}ms)`);
-            } else {
-              toast.info('No speech detected. Please speak clearly into the microphone.');
+              setInput(data.text.trim());
+              toast.success(`Transcribed with Moonshine Base (${data.latency_ms || 30}ms)`);
             }
-          } else if (data.event === 'error') {
-            setIsTranscribing(false);
-            toast.error(`STT error: ${data.error || 'Transcription failed'}`);
           }
         } catch (e) {
           console.error('WebSocket parse error', e);
@@ -105,25 +99,39 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
     };
   }, [open]);
 
-  // Recording Timer
-  useEffect(() => {
-    if (isRecording) {
-      timerRef.current = setInterval(() => {
-        setRecordingSeconds((s) => s + 1);
-      }, 1000);
-    } else {
-      clearInterval(timerRef.current);
-      setRecordingSeconds(0);
-    }
-    return () => clearInterval(timerRef.current);
-  }, [isRecording]);
-
   const startVoiceRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
 
-      // Determine supported MIME type
+      // Optional Browser Speech Recognition for instant 0ms visual streaming
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        try {
+          const recognition = new SpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = 'en-US';
+
+          recognition.onresult = (event: any) => {
+            let interimTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+              interimTranscript += event.results[i][0].transcript;
+            }
+            if (interimTranscript.trim()) {
+              setInput(interimTranscript.trim());
+            }
+          };
+
+          recognition.onerror = () => {};
+          recognition.start();
+          speechRecognitionRef.current = recognition;
+        } catch (e) {
+          console.warn('Native SpeechRecognition unavailable, using Moonshine WebSocket streaming', e);
+        }
+      }
+
+      // MediaRecorder streaming binary chunks to Moonshine WebSocket
       let mimeType = 'audio/webm;codecs=opus';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
         mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
@@ -132,7 +140,6 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
 
-      // Start WebSocket session if connected
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ action: 'start' }));
       }
@@ -149,13 +156,18 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
 
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach((track) => track.stop());
-        setIsTranscribing(true);
 
-        // If WebSocket is open, send stop/flush action
+        if (speechRecognitionRef.current) {
+          try {
+            speechRecognitionRef.current.stop();
+          } catch (e) {}
+          speechRecognitionRef.current = null;
+        }
+
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           wsRef.current.send(JSON.stringify({ action: 'stop' }));
         } else {
-          // Fallback REST endpoint
+          // REST Fallback if WebSocket not open
           try {
             const blob = new Blob(audioChunksRef.current, { type: mimeType });
             const formData = new FormData();
@@ -166,25 +178,18 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
               body: formData,
             });
             const data = await res.json();
-            setIsTranscribing(false);
-
             if (data.text && data.text.trim()) {
-              setInput((prev) => (prev ? `${prev} ${data.text.trim()}` : data.text.trim()));
-              toast.success(`Transcribed via Moonshine Base REST (${data.latency_ms || 40}ms)`);
-            } else {
-              toast.info('No speech detected.');
+              setInput(data.text.trim());
             }
-          } catch (restErr) {
-            setIsTranscribing(false);
-            console.error('REST STT error:', restErr);
-            toast.error('Could not transcribe audio. Ensure the Moonshine STT server is running.');
+          } catch (err) {
+            console.error('REST STT error', err);
           }
         }
       };
 
       mediaRecorder.start(250); // Emit audio chunks every 250ms
       setIsRecording(true);
-      toast.info('Listening with Moonshine Base STT...');
+      toast.info('Listening... speak into your microphone.');
     } catch (err: any) {
       console.error('Microphone error:', err);
       toast.error('Could not access microphone. Please grant browser microphone permission.');
@@ -233,12 +238,6 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
     } finally {
       setTyping(false);
     }
-  };
-
-  const formatTimer = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -304,7 +303,7 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
                   </div>
                   <h4>How can I assist your hiring decision?</h4>
                   <p>
-                    Ask questions using text or voice with <b>Moonshine Base STT</b>. I have full context over candidate rankings, qualifications, and skill evidence.
+                    Ask questions using text or real-time voice with <b>Moonshine Base STT</b>. I have full context over candidate rankings, qualifications, and skill evidence.
                   </p>
 
                   <div className="prompts-list">
@@ -351,64 +350,7 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
               </div>
             </div>
 
-            {/* Live Recording Banner */}
-            {isRecording && (
-              <div style={{
-                padding: '8px 16px',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                borderTop: '1px solid rgba(239, 68, 68, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                fontSize: '12px',
-                color: '#ef4444'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    backgroundColor: '#ef4444',
-                    animation: 'pulse 1s infinite'
-                  }} />
-                  <b>Recording audio ({formatTimer(recordingSeconds)})...</b>
-                </div>
-                <button
-                  type="button"
-                  onClick={stopVoiceRecording}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#ef4444',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    fontSize: '11px',
-                    textDecoration: 'underline'
-                  }}
-                >
-                  Finish & Transcribe
-                </button>
-              </div>
-            )}
-
-            {/* Live Transcribing Banner */}
-            {isTranscribing && (
-              <div style={{
-                padding: '8px 16px',
-                backgroundColor: 'var(--primary-light)',
-                borderTop: '1px solid var(--primary-subtle)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '12px',
-                color: 'var(--primary-text)'
-              }}>
-                <Loader2 size={14} className="animate-spin" style={{ color: 'var(--primary)' }} />
-                <span>Processing speech with <b>Moonshine Base</b> model...</span>
-              </div>
-            )}
-
-            {/* Input Footer */}
+            {/* Input Footer with Direct Real-time Transcription in Input Box */}
             <form
               className="chat-input-footer"
               onSubmit={(e) => {
@@ -421,12 +363,16 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={isRecording ? 'Listening to speech...' : 'Type or click mic to speak with Moonshine STT...'}
+                placeholder={isRecording ? 'Listening... speaking will transcribe here in real-time' : 'Type or click mic to speak with Moonshine STT...'}
                 aria-label="Ask Recruiter Assistant"
-                style={{ flex: 1 }}
+                style={{ 
+                  flex: 1,
+                  borderColor: isRecording ? '#ef4444' : undefined,
+                  boxShadow: isRecording ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : undefined
+                }}
               />
 
-              {/* Voice Microphone Button */}
+              {/* Voice Microphone Button (Click to start/stop) */}
               <button
                 type="button"
                 onClick={toggleRecording}
@@ -436,9 +382,10 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
                   backgroundColor: isRecording ? '#ef4444' : undefined,
                   color: isRecording ? '#ffffff' : 'var(--text-secondary)',
                   border: isRecording ? '1px solid #dc2626' : undefined,
-                  borderRadius: 'var(--radius-md)'
+                  borderRadius: 'var(--radius-md)',
+                  transition: 'all 0.15s ease'
                 }}
-                title={isRecording ? 'Click to stop recording' : 'Speak using Moonshine Base Speech-to-Text'}
+                title={isRecording ? 'Click to stop listening' : 'Click to speak with Moonshine Base STT'}
                 aria-label="Voice input"
               >
                 {isRecording ? <Square size={15} /> : <Mic size={15} />}
@@ -448,7 +395,7 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
               <button 
                 type="submit" 
                 className="send-btn" 
-                disabled={!input.trim() || typing || isTranscribing}
+                disabled={!input.trim() || typing}
                 title="Send message"
               >
                 <ArrowRight size={16} />
