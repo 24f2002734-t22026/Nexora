@@ -4,4 +4,10 @@ dist/
 .env
 .env.local
 *.tsbuildinfo
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
 
