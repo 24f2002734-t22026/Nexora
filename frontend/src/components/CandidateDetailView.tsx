@@ -16,19 +16,36 @@ import {
   ShieldCheck,
   ChevronRight,
   Layers,
-  Code2
+  Code2,
+  Eye,
+  Download,
+  Clock,
+  AlertCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Candidate, SkillEvidence } from '../types';
+import { ResumeViewerModal } from './ResumeViewerModal';
 
 interface CandidateDetailViewProps {
   candidate: Candidate;
   onCompareWithAnother?: (candidate: Candidate) => void;
+  onBack?: () => void;
 }
 
-export function CandidateDetailView({ candidate: c, onCompareWithAnother }: CandidateDetailViewProps) {
+export function CandidateDetailView({ candidate: c, onCompareWithAnother, onBack }: CandidateDetailViewProps) {
   const navigate = useNavigate();
   const [skillFilter, setSkillFilter] = useState<'all' | 'matched' | 'missing'>('all');
+  const [showResumeViewer, setShowResumeViewer] = useState(false);
+
+  const isPending = c.analysisPending || c.finalScore === undefined;
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      navigate(-1);
+    }
+  };
 
   const evidenceLevelBadge = (level: SkillEvidence['level']) => {
     switch (level) {
@@ -44,7 +61,7 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother }: Cand
   };
 
   const skillEntries = Object.entries(c.skillEvidence || {});
-  const filteredSkills = skillEntries.filter(([name, ev]) => {
+  const filteredSkills = skillEntries.filter(([_, ev]) => {
     if (skillFilter === 'matched') return ev.level !== 'not_found';
     if (skillFilter === 'missing') return ev.level === 'not_found';
     return true;
@@ -54,10 +71,17 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother }: Cand
     <div className="candidate-detail-container">
       {/* Top Breadcrumb & Action Bar */}
       <div className="detail-top-bar">
-        <button type="button" className="back-link-btn" onClick={() => navigate(-1)}>
+        <button type="button" className="back-link-btn" onClick={handleBack}>
           <ArrowLeft size={16} /> Back to candidates
         </button>
         <div className="detail-actions-right">
+          <button
+            type="button"
+            className="btn btn-primary flex items-center gap-2"
+            onClick={() => setShowResumeViewer(true)}
+          >
+            <Eye size={15} /> View Uploaded Resume
+          </button>
           {onCompareWithAnother && (
             <button
               type="button"
@@ -105,8 +129,30 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother }: Cand
               </div>
               <div className="meta-item">
                 <Briefcase size={14} />
-                <span>{c.experienceYears} Years Production Experience</span>
+                <span>{c.experienceYears ? `${c.experienceYears} Years Experience` : 'Experience on file'}</span>
               </div>
+            </div>
+
+            {/* Resume Action in Profile */}
+            <div className="mt-4 p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                  Resume Attachment
+                </span>
+                <span className="text-[10px] px-1.5 py-0.5 bg-blue-500/10 text-blue-400 rounded font-mono uppercase">
+                  {c.resume?.fileType || 'PDF'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-200 font-medium truncate mb-2.5">
+                {c.resume?.fileName || `${c.name}_Resume.pdf`}
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowResumeViewer(true)}
+                className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+              >
+                <Eye size={14} /> Open Document Viewer
+              </button>
             </div>
 
             <hr className="profile-divider" />
@@ -189,13 +235,17 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother }: Cand
               <h4>
                 <GraduationCap size={15} /> Education
               </h4>
-              {c.education.map((edu, idx) => (
-                <div key={idx} className="edu-entry">
-                  <b>{edu.degree}</b>
-                  <div className="edu-school">{edu.institution}</div>
-                  <small className="edu-year">Class of {edu.year}</small>
-                </div>
-              ))}
+              {c.education && c.education.length > 0 ? (
+                c.education.map((edu, idx) => (
+                  <div key={idx} className="edu-entry">
+                    <b>{edu.degree}</b>
+                    <div className="edu-school">{edu.institution}</div>
+                    <small className="edu-year">Class of {edu.year}</small>
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs text-slate-500 italic">Education details on file in attached resume.</p>
+              )}
             </div>
 
             {/* External Profile Evidence */}
@@ -239,60 +289,72 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother }: Cand
                 <h2>Technical Skills & Evidence</h2>
                 <p>Multi-source evidence extracted from resume text, projects, and work history.</p>
               </div>
-              <div className="filter-pill-group">
-                <button
-                  type="button"
-                  className={`filter-pill ${skillFilter === 'all' ? 'active' : ''}`}
-                  onClick={() => setSkillFilter('all')}
-                >
-                  All ({skillEntries.length})
-                </button>
-                <button
-                  type="button"
-                  className={`filter-pill ${skillFilter === 'matched' ? 'active' : ''}`}
-                  onClick={() => setSkillFilter('matched')}
-                >
-                  Evidenced ({c.matchedSkills.length})
-                </button>
-                <button
-                  type="button"
-                  className={`filter-pill ${skillFilter === 'missing' ? 'active' : ''}`}
-                  onClick={() => setSkillFilter('missing')}
-                >
-                  Gaps ({c.missingSkills.length})
-                </button>
-              </div>
-            </div>
-
-            <div className="skill-evidence-grid">
-              {filteredSkills.map(([skillName, ev]) => (
-                <div key={skillName} className={`skill-evidence-item ${ev.level}`}>
-                  <div className="skill-ev-header">
-                    <div>
-                      <b className="skill-title">{skillName}</b>
-                      <span className={`priority-tag ${ev.priority}`}>{ev.priority}</span>
-                    </div>
-                    {evidenceLevelBadge(ev.level)}
-                  </div>
-
-                  <ul className="evidence-points">
-                    {ev.details.map((detail, dIdx) => (
-                      <li key={dIdx}>{detail}</li>
-                    ))}
-                  </ul>
-
-                  {ev.level !== 'not_found' && (
-                    <div className="evidence-tags-row">
-                      {ev.inProjects && <span className="evidence-subtag">Used in Projects</span>}
-                      {ev.inWorkHistory && <span className="evidence-subtag">Work Experience</span>}
-                      {ev.yearsOfExperience ? (
-                        <span className="evidence-subtag">{ev.yearsOfExperience} yrs demonstrated</span>
-                      ) : null}
-                    </div>
-                  )}
+              {skillEntries.length > 0 && (
+                <div className="filter-pill-group">
+                  <button
+                    type="button"
+                    className={`filter-pill ${skillFilter === 'all' ? 'active' : ''}`}
+                    onClick={() => setSkillFilter('all')}
+                  >
+                    All ({skillEntries.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={`filter-pill ${skillFilter === 'matched' ? 'active' : ''}`}
+                    onClick={() => setSkillFilter('matched')}
+                  >
+                    Evidenced ({c.matchedSkills?.length || 0})
+                  </button>
+                  <button
+                    type="button"
+                    className={`filter-pill ${skillFilter === 'missing' ? 'active' : ''}`}
+                    onClick={() => setSkillFilter('missing')}
+                  >
+                    Gaps ({c.missingSkills?.length || 0})
+                  </button>
                 </div>
-              ))}
+              )}
             </div>
+
+            {skillEntries.length > 0 ? (
+              <div className="skill-evidence-grid">
+                {filteredSkills.map(([skillName, ev]) => (
+                  <div key={skillName} className={`skill-evidence-item ${ev.level}`}>
+                    <div className="skill-ev-header">
+                      <div>
+                        <b className="skill-title">{skillName}</b>
+                        <span className={`priority-tag ${ev.priority}`}>{ev.priority}</span>
+                      </div>
+                      {evidenceLevelBadge(ev.level)}
+                    </div>
+
+                    <ul className="evidence-points">
+                      {ev.details.map((detail, dIdx) => (
+                        <li key={dIdx}>{detail}</li>
+                      ))}
+                    </ul>
+
+                    {ev.level !== 'not_found' && (
+                      <div className="evidence-tags-row">
+                        {ev.inProjects && <span className="evidence-subtag">Used in Projects</span>}
+                        {ev.inWorkHistory && <span className="evidence-subtag">Work Experience</span>}
+                        {ev.yearsOfExperience ? (
+                          <span className="evidence-subtag">{ev.yearsOfExperience} yrs demonstrated</span>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center bg-slate-950/40 rounded-xl border border-slate-800">
+                <Clock className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-slate-300">Skills Parsing Pending</p>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+                  The applicant's resume is safely uploaded. Trigger the AI intelligence scan when ready to parse comprehensive skill evidence.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Section: Project Evidence */}
@@ -306,24 +368,28 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother }: Cand
               </div>
             </div>
 
-            <div className="projects-timeline">
-              {c.projects.map((proj, pIdx) => (
-                <div key={pIdx} className="project-card">
-                  <div className="project-top">
-                    <h4>{proj.title}</h4>
-                    {proj.period && <span className="project-period">{proj.period}</span>}
+            {c.projects && c.projects.length > 0 ? (
+              <div className="projects-timeline">
+                {c.projects.map((proj, pIdx) => (
+                  <div key={pIdx} className="project-card">
+                    <div className="project-top">
+                      <h4>{proj.title}</h4>
+                      {proj.period && <span className="project-period">{proj.period}</span>}
+                    </div>
+                    <p className="project-desc">{proj.description}</p>
+                    <div className="tech-tags">
+                      {proj.technologies.map((t) => (
+                        <span key={t} className="tech-tag">
+                          <Code2 size={11} /> {t}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                  <p className="project-desc">{proj.description}</p>
-                  <div className="tech-tags">
-                    {proj.technologies.map((t) => (
-                      <span key={t} className="tech-tag">
-                        <Code2 size={11} /> {t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 italic py-4">Projects will be indexed once analysis is performed.</p>
+            )}
           </div>
 
           {/* Section: Work Experience */}
@@ -337,31 +403,35 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother }: Cand
               </div>
             </div>
 
-            <div className="experience-list">
-              {c.workHistory.map((job, jIdx) => (
-                <div key={jIdx} className={`experience-card ${job.isOverlap ? 'has-overlap-flag' : ''}`}>
-                  <div className="exp-top-row">
-                    <div>
-                      <b className="exp-role">{job.role}</b>
-                      <div className="exp-company">{job.company}</div>
+            {c.workHistory && c.workHistory.length > 0 ? (
+              <div className="experience-list">
+                {c.workHistory.map((job, jIdx) => (
+                  <div key={jIdx} className={`experience-card ${job.isOverlap ? 'has-overlap-flag' : ''}`}>
+                    <div className="exp-top-row">
+                      <div>
+                        <b className="exp-role">{job.role}</b>
+                        <div className="exp-company">{job.company}</div>
+                      </div>
+                      <div className="exp-period-wrap">
+                        <span className="exp-period">{job.period}</span>
+                        {job.isOverlap && (
+                          <span className="overlap-indicator-badge">
+                            <AlertTriangle size={11} /> Timeline Overlap
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="exp-period-wrap">
-                      <span className="exp-period">{job.period}</span>
-                      {job.isOverlap && (
-                        <span className="overlap-indicator-badge">
-                          <AlertTriangle size={11} /> Timeline Overlap
-                        </span>
-                      )}
-                    </div>
+                    <ul className="exp-highlights">
+                      {job.highlights.map((h, hIdx) => (
+                        <li key={hIdx}>{h}</li>
+                      ))}
+                    </ul>
                   </div>
-                  <ul className="exp-highlights">
-                    {job.highlights.map((h, hIdx) => (
-                      <li key={hIdx}>{h}</li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 italic py-4">Detailed work history available in the attached resume document.</p>
+            )}
           </div>
         </section>
 
@@ -372,89 +442,93 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother }: Cand
           {/* Main Fit Score Widget */}
           <div className="fit-score-card">
             <span className="fit-eyebrow">OVERALL CANDIDATE FIT</span>
-            <div className="big-score-wrap">
-              <div className="big-score-number">{c.finalScore.toFixed(1)}%</div>
-              <div className="big-score-label">Final Match Score</div>
-            </div>
-
-            {/* Semantic vs Keyword Breakdown */}
-            <div className="match-breakdown-box">
-              <div className="breakdown-row">
-                <div className="breakdown-label">
-                  <span>Semantic Match</span>
-                  <b>{c.semanticScore}%</b>
+            
+            {isPending ? (
+              <div className="py-6 text-center">
+                <div className="text-3xl font-bold font-mono text-slate-400">—</div>
+                <div className="text-xs font-semibold text-blue-400 mt-1 flex items-center justify-center gap-1">
+                  <Clock size={13} />
+                  Analysis Pending
                 </div>
-                <div className="progress-bar">
-                  <div
-                    className="progress-fill semantic"
-                    style={{ width: `${c.semanticScore}%` }}
-                  />
-                </div>
-                <small className="breakdown-desc">Contextual alignment with role architecture</small>
+                <p className="text-[11px] text-slate-400 mt-2 max-w-[200px] mx-auto">
+                  AI match score will be calculated once the intelligence engine runs.
+                </p>
               </div>
+            ) : (
+              <>
+                <div className="big-score-wrap">
+                  <div className="big-score-number">{(c.finalScore || 0).toFixed(1)}%</div>
+                  <div className="big-score-label">Final Match Score</div>
+                </div>
 
-              <div className="breakdown-row">
-                <div className="breakdown-label">
-                  <span>Keyword Match</span>
-                  <b>{c.keywordScore}%</b>
-                </div>
-                <div className="progress-bar">
-                  <div
-                    className="progress-fill keyword"
-                    style={{ width: `${c.keywordScore}%` }}
-                  />
-                </div>
-                <small className="breakdown-desc">Direct technical term and skill detection</small>
-              </div>
-            </div>
+                {/* Semantic vs Keyword Breakdown */}
+                <div className="match-breakdown-box">
+                  <div className="breakdown-row">
+                    <div className="breakdown-label">
+                      <span>Semantic Match</span>
+                      <b>{c.semanticScore || 0}%</b>
+                    </div>
+                    <div className="progress-bar">
+                      <div
+                        className="progress-fill semantic"
+                        style={{ width: `${c.semanticScore || 0}%` }}
+                      />
+                    </div>
+                    <small className="breakdown-desc">Contextual alignment with role architecture</small>
+                  </div>
 
-            {/* Required & Preferred Skills Counts */}
-            <div className="skill-ratio-grid">
-              <div className="ratio-card">
-                <span>Required Skills</span>
-                <b>
-                  {c.requiredSkillsMatched} / {c.requiredSkillsTotal}
-                </b>
-                <div className="ratio-status">
-                  {c.requiredSkillsMatched === c.requiredSkillsTotal ? (
-                    <span className="text-success">100% Coverage</span>
-                  ) : (
-                    <span>{Math.round((c.requiredSkillsMatched / c.requiredSkillsTotal) * 100)}% Coverage</span>
-                  )}
+                  <div className="breakdown-row">
+                    <div className="breakdown-label">
+                      <span>Keyword Match</span>
+                      <b>{c.keywordScore || 0}%</b>
+                    </div>
+                    <div className="progress-bar">
+                      <div
+                        className="progress-fill keyword"
+                        style={{ width: `${c.keywordScore || 0}%` }}
+                      />
+                    </div>
+                    <small className="breakdown-desc">Direct technical term and skill detection</small>
+                  </div>
                 </div>
-              </div>
 
-              <div className="ratio-card">
-                <span>Preferred Skills</span>
-                <b>
-                  {c.preferredSkillsMatched} / {c.preferredSkillsTotal}
-                </b>
-                <div className="ratio-status">
-                  <span>{Math.round((c.preferredSkillsMatched / c.preferredSkillsTotal) * 100)}% Coverage</span>
+                {/* Required & Preferred Skills Counts */}
+                <div className="skill-ratio-grid">
+                  <div className="ratio-card">
+                    <span>Required Skills</span>
+                    <b>
+                      {c.requiredSkillsMatched} / {c.requiredSkillsTotal}
+                    </b>
+                    <div className="ratio-status">
+                      {c.requiredSkillsMatched === c.requiredSkillsTotal ? (
+                        <span className="text-success">100% Coverage</span>
+                      ) : (
+                        <span>{Math.round((c.requiredSkillsMatched / (c.requiredSkillsTotal || 1)) * 100)}% Coverage</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="ratio-card">
+                    <span>Preferred Skills</span>
+                    <b>
+                      {c.preferredSkillsMatched} / {c.preferredSkillsTotal}
+                    </b>
+                    <div className="ratio-status">
+                      <span>{Math.round((c.preferredSkillsMatched / (c.preferredSkillsTotal || 1)) * 100)}% Coverage</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </>
+            )}
 
             {/* Matched Skills List */}
-            <div className="skills-summary-box">
-              <span className="summary-title">Matched Skills</span>
-              <div className="skills-pill-wrap">
-                {c.matchedSkills.map((s) => (
-                  <span key={s} className="matched-pill">
-                    <CheckCircle2 size={12} /> {s}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Missing / Weak Skills List */}
-            {c.missingSkills.length > 0 && (
+            {c.matchedSkills && c.matchedSkills.length > 0 && (
               <div className="skills-summary-box">
-                <span className="summary-title text-muted">Missing / Weak Skills</span>
+                <span className="summary-title">Matched Skills</span>
                 <div className="skills-pill-wrap">
-                  {c.missingSkills.map((s) => (
-                    <span key={s} className="missing-pill-muted">
-                      {s}
+                  {c.matchedSkills.map((s) => (
+                    <span key={s} className="matched-pill">
+                      <CheckCircle2 size={12} /> {s}
                     </span>
                   ))}
                 </div>
@@ -474,7 +548,7 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother }: Cand
               ========================================================================= */}
           <div className="verification-card">
             <div className="verification-head">
-              {c.verificationAlerts.length > 0 ? (
+              {c.verificationAlerts && c.verificationAlerts.length > 0 ? (
                 <div className="verif-title-wrap warning">
                   <ShieldAlert size={18} />
                   <div>
@@ -487,13 +561,13 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother }: Cand
                   <ShieldCheck size={18} />
                   <div>
                     <h4>Resume Verification</h4>
-                    <span className="verif-status-badge ok">Verified · No Flaws</span>
+                    <span className="verif-status-badge ok">Verified · No Anomalies</span>
                   </div>
                 </div>
               )}
             </div>
 
-            {c.verificationAlerts.length > 0 ? (
+            {c.verificationAlerts && c.verificationAlerts.length > 0 ? (
               <div className="alert-content-body">
                 {c.verificationAlerts.map((alert) => (
                   <div key={alert.id} className="alert-item">
@@ -511,20 +585,28 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother }: Cand
                 <div className="score-independence-notice">
                   <div className="notice-icon">i</div>
                   <p>
-                    <b>Match Score Independence:</b> The candidate's <b>{c.finalScore}%</b> Match Score evaluates job qualifications independently. This timeline notice is provided for interview screening verification.
+                    <b>Match Score Independence:</b> Verification alerts do not alter candidate match scores. Flags are provided solely for recruiter context and interview screening.
                   </p>
                 </div>
               </div>
             ) : (
               <div className="verified-body">
                 <p>
-                  No timeline overlaps or inconsistent employment periods detected across verified resume dates.
+                  No formatting manipulation, hidden text layers, or timeline overlaps detected across verified resume contents.
                 </p>
               </div>
             )}
           </div>
         </aside>
       </div>
+
+      {/* Resume Viewer Modal */}
+      {showResumeViewer && (
+        <ResumeViewerModal
+          candidate={c}
+          onClose={() => setShowResumeViewer(false)}
+        />
+      )}
     </div>
   );
 }

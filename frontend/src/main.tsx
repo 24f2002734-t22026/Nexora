@@ -39,7 +39,8 @@ import {
   ShieldAlert,
   ShieldCheck,
   Eye,
-  Columns2
+  Columns2,
+  Briefcase
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { demoAnalysis, candidates as initialCandidates, jobSkills } from './data';
@@ -50,7 +51,10 @@ import { CandidateDetailView } from './components/CandidateDetailView';
 import { CandidateComparisonModal } from './components/CandidateComparisonModal';
 import { HiringSimulator } from './components/HiringSimulator';
 import { RecruiterChatbot } from './components/RecruiterChatbot';
-import type { Candidate, JobSkill } from './types';
+import { JobOpeningsTable } from './components/JobOpeningsTable';
+import { JobCandidatesView } from './components/JobCandidatesView';
+import { store } from './services/store';
+import type { Candidate, JobSkill, JobOpening } from './types';
 import './styles.css';
 
 // ---------------------------------------------------------------------------
@@ -101,7 +105,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
   const navItems: [string, React.ComponentType<{ size?: number }>, string][] = [
     ['/dashboard', LayoutDashboard, 'Dashboard'],
-    ['/analysis/new', Plus, 'New Analysis'],
+    ['/analysis', Briefcase, 'Job Openings'],
     ['/candidates', Users, 'Candidates'],
     ['/settings', Settings, 'Settings'],
   ];
@@ -571,7 +575,7 @@ function DashboardPage() {
             <div className="top-card-header">
               <span className="top-rank-badge">#{c.rank}</span>
               <div className="top-score-badge">
-                <b>{c.finalScore.toFixed(1)}%</b>
+                <b>{c.finalScore !== undefined ? `${c.finalScore.toFixed(1)}%` : '—'}</b>
                 <small>Match</small>
               </div>
             </div>
@@ -1067,13 +1071,13 @@ function AnalysisResultsPage() {
                   <small>{c.title}</small>
                 </div>
                 <div className="why-score-pill">
-                  <b>{c.finalScore.toFixed(1)}%</b>
+                  <b>{c.finalScore !== undefined ? `${c.finalScore.toFixed(1)}%` : '—'}</b>
                 </div>
               </div>
 
               <div className="why-dual-scores">
-                <span className="dual-chip">Semantic: <b>{c.semanticScore}%</b></span>
-                <span className="dual-chip">Keywords: <b>{c.keywordScore}%</b></span>
+                <span className="dual-chip">Semantic: <b>{c.semanticScore ?? 0}%</b></span>
+                <span className="dual-chip">Keywords: <b>{c.keywordScore ?? 0}%</b></span>
                 <span className="dual-chip">Exp: <b>{c.experienceYears} yrs</b></span>
               </div>
 
@@ -1185,7 +1189,7 @@ function AnalysisResultsPage() {
                     )}
                   </td>
                   <td className="text-right">
-                    <b className="final-score-text">{c.finalScore.toFixed(1)}%</b>
+                    <b className="final-score-text">{c.finalScore !== undefined ? `${c.finalScore.toFixed(1)}%` : '—'}</b>
                   </td>
                   <td className="text-right">
                     <button
@@ -1271,9 +1275,10 @@ function CandidatesPage() {
         if (!matchesQuery) return false;
 
         // Tier filter
-        if (tierFilter === 'strong' && c.finalScore < 80) return false;
-        if (tierFilter === 'good' && (c.finalScore < 70 || c.finalScore >= 80)) return false;
-        if (tierFilter === 'review' && c.finalScore >= 70) return false;
+        const score = c.finalScore ?? 0;
+        if (tierFilter === 'strong' && score < 80) return false;
+        if (tierFilter === 'good' && (score < 70 || score >= 80)) return false;
+        if (tierFilter === 'review' && score >= 70) return false;
 
         // Skill filter
         if (skillFilter !== 'all' && !c.matchedSkills.includes(skillFilter)) return false;
@@ -1285,9 +1290,9 @@ function CandidatesPage() {
         return true;
       })
       .sort((a, b) => {
-        if (sortBy === 'score') return b.finalScore - a.finalScore;
-        if (sortBy === 'semantic') return b.semanticScore - a.semanticScore;
-        if (sortBy === 'keyword') return b.keywordScore - a.keywordScore;
+        if (sortBy === 'score') return (b.finalScore ?? 0) - (a.finalScore ?? 0);
+        if (sortBy === 'semantic') return (b.semanticScore ?? 0) - (a.semanticScore ?? 0);
+        if (sortBy === 'keyword') return (b.keywordScore ?? 0) - (a.keywordScore ?? 0);
         if (sortBy === 'exp') return b.experienceYears - a.experienceYears;
         return a.rank - b.rank;
       });
@@ -1459,7 +1464,7 @@ function CandidatesPage() {
                     )}
                   </td>
                   <td className="text-right">
-                    <b className="final-score-text">{c.finalScore.toFixed(1)}%</b>
+                    <b className="final-score-text">{c.finalScore !== undefined ? `${c.finalScore.toFixed(1)}%` : '—'}</b>
                   </td>
                   <td className="text-right">
                     <button
@@ -1491,15 +1496,124 @@ function CandidatesPage() {
 }
 
 // ---------------------------------------------------------------------------
+// ANALYSIS & JOB OPENINGS PAGES
+// ---------------------------------------------------------------------------
+function AnalysisJobOpeningsPage() {
+  const navigate = useNavigate();
+  return (
+    <div className="analysis-job-openings-view">
+      <JobOpeningsTable
+        onSelectJob={(job) => navigate(`/analysis/${job.id}/candidates`)}
+      />
+      <RecruiterChatbot candidates={initialCandidates} />
+    </div>
+  );
+}
+
+function JobCandidatesRoutePage() {
+  const { jobId } = useParams();
+  const navigate = useNavigate();
+  const [job, setJob] = useState<JobOpening | null>(null);
+  const [loading, setLoading] = useState(true);
+  const searchParams = new URLSearchParams(window.location.search);
+  const initialOpenUpload = searchParams.get('upload') === 'true';
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchJob = async () => {
+      if (!jobId) return;
+      const data = await store.getJobOpening(jobId);
+      if (isMounted) {
+        setJob(data);
+        setLoading(false);
+      }
+    };
+    fetchJob();
+    return () => {
+      isMounted = false;
+    };
+  }, [jobId]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+        <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
+        <p className="text-sm font-medium">Loading candidate applications...</p>
+      </div>
+    );
+  }
+
+  if (!job) {
+    return (
+      <div className="py-20 text-center text-slate-400">
+        <Briefcase className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+        <h3 className="text-base font-semibold text-white">Job Opening Not Found</h3>
+        <p className="text-xs text-slate-500 mt-1">The requested job opening could not be located.</p>
+        <button
+          onClick={() => navigate('/analysis')}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-500 transition-colors"
+        >
+          Return to Job Openings
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="job-candidates-page-view">
+      <JobCandidatesView
+        job={job}
+        initialOpenUpload={initialOpenUpload}
+        onBack={() => navigate('/analysis')}
+        onSelectCandidate={(candidate) => navigate(`/candidate/${candidate.id}`)}
+      />
+      <RecruiterChatbot candidates={initialCandidates} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // CANDIDATE DETAILS ROUTE WRAPPER
 // ---------------------------------------------------------------------------
 function CandidateDetailsPage() {
   const { id } = useParams();
-  const candidate = initialCandidates.find((c) => c.id === id) || initialCandidates[0];
+  const navigate = useNavigate();
+  const [candidate, setCandidate] = useState<Candidate | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCand = async () => {
+      if (!id) return;
+      const stored = await store.getCandidate(id);
+      if (isMounted) {
+        if (stored) {
+          setCandidate(stored);
+        } else {
+          const fallback = initialCandidates.find((c) => c.id === id) || initialCandidates[0];
+          setCandidate(fallback);
+        }
+        setLoading(false);
+      }
+    };
+    fetchCand();
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
+
+  if (loading || !candidate) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+        <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
+        <p className="text-sm font-medium">Loading candidate dossier...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="candidate-details-route-view">
-      <CandidateDetailView candidate={candidate} />
+      <CandidateDetailView candidate={candidate} onBack={() => navigate(-1)} />
       <RecruiterChatbot candidates={initialCandidates} />
     </div>
   );
@@ -1537,18 +1651,18 @@ function SettingsPage() {
           <div>
             <h3>Design Theme</h3>
             <p>
-              NEXORA uses an enterprise light theme built for readable, high-contrast recruiter workflows.
+              NEXORA uses an enterprise dark/light theme built for readable, high-contrast recruiter workflows.
             </p>
           </div>
           <span className="status-badge-inline status-strong">
-            <Check size={13} /> Light Theme Active
+            <Check size={13} /> Theme Active
           </span>
         </div>
 
         <div className="settings-panel-card">
           <div>
             <h3>Application Information</h3>
-            <p>NEXORA Candidate Intelligence · v1.0.0 · Dual Matching Engine Active</p>
+            <p>NEXORA Candidate Intelligence · v1.2.0 · Resume Fraud & Timeline Verification Active</p>
           </div>
           <button type="button" className="btn btn-danger" onClick={signOut}>
             <LogOut size={15} /> Sign Out
@@ -1628,6 +1742,8 @@ function App() {
             <Routes>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/analysis" element={<AnalysisJobOpeningsPage />} />
+              <Route path="/analysis/:jobId/candidates" element={<JobCandidatesRoutePage />} />
               <Route path="/analysis/new" element={<NewAnalysisPage />} />
               <Route path="/analysis/:id/loading" element={<LoadingPage />} />
               <Route path="/analysis/:id/results" element={<AnalysisResultsPage />} />

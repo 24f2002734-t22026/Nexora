@@ -19,13 +19,72 @@ export type VerificationStatus = 'verified' | 'review_recommended' | 'unverified
 
 export interface VerificationAlert {
   id: string;
-  type: 'timeline_overlap' | 'unusual_gap' | 'unverified_credential';
-  severity: 'warning' | 'info';
+  type: 'timeline_overlap' | 'unusual_gap' | 'unverified_credential' | 'white_font' | 'tiny_text' | 'off_margin_text' | 'hidden_behind_image' | 'formatting_anomaly';
+  severity: 'warning' | 'info' | 'high' | 'critical' | 'low';
   title: string;
   message: string;
   timelineDetails?: string;
+  pageNumber?: number;
+  confidenceScore?: number;
+  detectedValue?: string;
+  expectedValue?: string;
+  boundingBox?: {
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number;
+    width: number;
+    height: number;
+  };
+  evidence?: Record<string, any>;
   reviewRecommended: boolean;
   impactOnScore: 0; // Explicitly zero: verification alerts never reduce candidate fit scores
+}
+
+export interface FraudFinding {
+  id: string;
+  fraudType: 'white_font' | 'tiny_text' | 'off_margin_text' | 'hidden_behind_image' | 'suspicious_formatting' | 'other';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  confidenceScore: number;
+  pageNumber: number;
+  description: string;
+  extractedText: string;
+  detectedValue: string;
+  expectedValue: string;
+  boundingBox?: {
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number;
+    width: number;
+    height: number;
+  };
+  evidence?: Record<string, any>;
+}
+
+export interface FraudReport {
+  fraudDetected: boolean;
+  riskScore: number; // 0 - 100
+  confidenceScore: number;
+  totalFindings: number;
+  criticalFindings: number;
+  highFindings: number;
+  mediumFindings: number;
+  lowFindings: number;
+  scanSummary: string;
+  findings: FraudFinding[];
+}
+
+export interface ResumeDocument {
+  id: string;
+  fileName: string;
+  fileUrl?: string;
+  fileType: string; // 'pdf' | 'docx' | 'txt'
+  fileSize?: number;
+  fileBlob?: Blob;
+  uploadedAt: string;
+  parsingStatus?: 'pending' | 'completed' | 'failed';
+  fraudReport?: FraudReport;
 }
 
 export interface JobSkill {
@@ -55,6 +114,7 @@ export interface CandidateEducation {
   degree: string;
   institution: string;
   year: string;
+  cgpa?: string;
 }
 
 export interface CandidateLinks {
@@ -69,17 +129,32 @@ export interface ExternalEvidence {
   profileHealth?: string;
 }
 
+export interface ScoreBreakdown {
+  semanticMatch: number;      // Max 35
+  keywordMatch: number;       // Max 25
+  experienceScore: number;    // Max 15
+  projectsScore: number;      // Max 15
+  educationScore: number;     // Max 10
+  totalScore: number;         // Max 100
+}
+
 export interface Candidate {
   id: string;
+  jobId?: string;
   name: string;
   title: string;
   email: string;
   phone?: string;
   location: string;
   rank: number;
-  finalScore: number;
-  semanticScore: number;
-  keywordScore: number;
+  
+  // Score details (Nullable when AI analysis has not been executed)
+  finalScore?: number;
+  semanticScore?: number;
+  keywordScore?: number;
+  scoreBreakdown?: ScoreBreakdown;
+  analysisPending?: boolean;
+
   requiredSkillsMatched: number;
   requiredSkillsTotal: number;
   preferredSkillsMatched: number;
@@ -97,10 +172,34 @@ export interface Candidate {
   externalEvidence?: ExternalEvidence;
   verificationAlerts: VerificationAlert[];
   verificationStatus: VerificationStatus;
+  
+  // Resume File
+  resume?: ResumeDocument;
+  appliedAt?: string;
+}
+
+export interface JobOpening {
+  id: string;
+  title: string;
+  department?: string;
+  location?: string;
+  employmentType?: string; // 'Full-time' | 'Part-time' | 'Contract' | 'Remote'
+  description: string;
+  requirements?: string;
+  responsibilities?: string;
+  skillsRequired: string[];
+  preferredSkills?: string[];
+  experienceMinYears?: number;
+  experienceMaxYears?: number;
+  status: 'open' | 'closed' | 'draft';
+  candidateCount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Analysis {
   id: string;
+  jobId?: string;
   jobTitle: string;
   jobDescriptionFileName: string;
   candidateCount: number;
