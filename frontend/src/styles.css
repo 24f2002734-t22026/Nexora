@@ -3640,30 +3640,116 @@ p {
 }
 
 .chat-bubble {
-  max-width: 80%;
-  padding: 12px 14px;
+  max-width: 88%;
+  padding: 12px 16px;
   border-radius: var(--radius-lg);
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: 13.5px;
+  line-height: 1.6;
+  word-break: break-word;
 }
 
 .chat-bubble-row.assistant .chat-bubble {
   background-color: #fafbfc;
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  white-space: pre-wrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .chat-bubble-row.user .chat-bubble {
   background-color: var(--primary);
   color: #ffffff;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-bubble-text {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.chat-bubble-text h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-bubble-text h4 {
+  font-size: 13.5px;
+  font-weight: 600;
+  margin: 10px 0 6px 0;
+  color: var(--text-primary);
+}
+
+.chat-bubble-text p {
+  margin: 0 0 8px 0;
+}
+
+.chat-bubble-text p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-bubble-text ul,
+.chat-bubble-text ol {
+  margin: 6px 0 10px 0;
+  padding-left: 20px;
+}
+
+.chat-bubble-text li {
+  margin-bottom: 4px;
+}
+
+.chat-bubble-text strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.chat-bubble-text code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  background-color: rgba(0, 0, 0, 0.06);
+  color: var(--primary);
+  padding: 2px 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.chat-bubble-text table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  font-size: 12px;
+  background-color: #ffffff;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.chat-bubble-text th,
+.chat-bubble-text td {
+  padding: 7px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.chat-bubble-text th {
+  background-color: var(--bg-subtle, #f1f5f9);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.chat-bubble-text tr:last-child td {
+  border-bottom: none;
 }
 
 .chat-timestamp {
   display: block;
-  font-size: 10px;
-  opacity: 0.7;
-  margin-top: 4px;
+  font-size: 10.5px;
+  opacity: 0.65;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
 .typing-bubble {

@@ -187,7 +187,35 @@ export async function chatWithRecruiter(
   }
 
   await wait(300);
-  const pLower = prompt.toLowerCase();
+  const pLower = prompt.toLowerCase().trim();
+  const pClean = pLower.replace(/[^\w\s]/g, '').trim();
+
+  // 1. CONVERSATIONAL GREETINGS & INTRODUCTIONS
+  const greetingTokens = ['hi', 'hello', 'hey', 'hey there', 'good morning', 'good afternoon', 'good evening', 'howdy', 'yo', 'greetings', 'who are you', 'what can you do', 'help', 'how are you'];
+  if (greetingTokens.includes(pClean) || ['hi', 'hello', 'hey', 'good morning', 'good afternoon'].some((g) => pClean.startsWith(g + ' '))) {
+    const topC = [...candidateList].sort((a, b) => (b.finalScore || 0) - (a.finalScore || 0))[0];
+    const topName = topC ? topC.name : 'Top Candidate';
+    const topScore = topC ? topC.finalScore : 0;
+    const flaggedCount = candidateList.filter((c) => (c.verificationAlerts && c.verificationAlerts.length > 0) || c.verificationStatus === 'review_recommended').length;
+
+    return {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      timestamp: time,
+      content: `Hello! 👋 I'm your **Nexora AI Recruiter Intelligence Assistant**.\n\n` +
+        `I have analyzed all **${candidateList.length} active candidates** for the **Senior Full Stack Engineer** role.\n\n` +
+        `**Current Pool Snapshot**:\n` +
+        `• **Top Match**: **${topName}** (${topScore}% match score)\n` +
+        `• **Integrity Alerts**: **${flaggedCount} candidate(s)** with flagged anomalies\n\n` +
+        `Here is what I can think through for you:\n` +
+        `• 🎯 **Candidate Deep Dive**: _\"Tell me about ${topName}\"_ or _\"Why is ${topName} ranked #1?\"_\n` +
+        `• 💡 **Interview Questions**: _\"Draft 3 interview questions for ${topName}\"_\n` +
+        `• ⚖️ **Comparison**: _\"Compare ${topName} with another candidate\"_\n` +
+        `• 🛡️ **Fraud & Verification**: _\"Show all fraud detection alerts\"_\n` +
+        `• 🔍 **Skill Search**: _\"Who has verified React and Docker experience?\"_\n\n` +
+        `What would you like to explore?`
+    };
+  }
 
   // 2. SPECIFIC CANDIDATE INQUIRY
   const matchedCandidate = candidateList.find((c) => {
@@ -195,6 +223,59 @@ export async function chatWithRecruiter(
     const firstName = nameLower.split(' ')[0];
     return pLower.includes(nameLower) || (firstName.length >= 3 && pLower.includes(firstName));
   });
+
+  // 3. INTERVIEW QUESTIONS GENERATION
+  if (/interview question|interview questions|what to ask|what should i ask|question for|questions for|interview prep/i.test(pLower)) {
+    const target = matchedCandidate || [...candidateList].sort((a, b) => (b.finalScore || 0) - (a.finalScore || 0))[0];
+    if (target) {
+      const topSkill = target.matchedSkills[0] || 'Full Stack Engineering';
+      const secSkill = target.matchedSkills[1] || 'System Architecture';
+      const missingText = target.missingSkills[0] || 'production cloud scale';
+      const projTitle = target.projects && target.projects[0] ? target.projects[0].title : 'scalable web architecture';
+
+      const questions = [
+        `1. **Architecture & Demonstrated Skills (${topSkill} / ${secSkill})**:\n   _\"Can you walk us through the technical architecture of your work on '${projTitle}'? Specifically, how did you handle state management and API performance?\"_`,
+        `2. **Skill Gap Assessment (${missingText})**:\n   _\"Our team relies on ${missingText}. How have you ramped up on unfamiliar technologies in previous roles, and how would you apply that here?\"_`,
+        `3. **Code Quality & Testing**:\n   _\"How do you balance rapid feature delivery with unit/integration test coverage and CI/CD pipelines in a fast-paced environment?\"_`,
+        `4. **Engineering Trade-offs & Debugging**:\n   _\"Describe a scenario where a production issue or performance bottleneck arose. What telemetry did you inspect, and how did you resolve it?\"_`
+      ];
+
+      if (target.verificationAlerts && target.verificationAlerts.length > 0) {
+        questions.push(
+          `5. **Integrity & Practical Verification (Flag Follow-up)**:\n   _\"Can you conduct a live code walk-through demonstrating hands-on implementation details of your listed ${topSkill} projects?\"_`
+        );
+      }
+
+      return {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        timestamp: time,
+        content: `### 💡 Tailored Interview Questions for **${target.name}** (${target.title})\n\n` +
+          `Based on **${target.name}**'s verified profile (Rank #${target.rank}, Match Score: **${target.finalScore}%**):\n\n` +
+          questions.join('\n\n') + '\n\n' +
+          `📌 **Recruiter Tip**: Focus on their actual hands-on execution in ${topSkill} and probe how quickly they can bridge any experience in ${missingText}.`
+      };
+    }
+  }
+
+  // 4. EXPLAIN SCORE / WHY RANKED
+  if (/why|explain|reason|scored|scoring/i.test(pLower) && (matchedCandidate || /rank|score|#1|top|first/i.test(pLower))) {
+    const target = matchedCandidate || [...candidateList].sort((a, b) => (b.finalScore || 0) - (a.finalScore || 0))[0];
+    if (target) {
+      return {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        timestamp: time,
+        content: `### 📊 Score Analysis: **${target.name}** (Final Score: **${target.finalScore}%**)\n\n` +
+          `Here is how Nexora's AI Engine evaluated **${target.name}** for Senior Full Stack Engineer:\n\n` +
+          `1. **Semantic Match (${target.semanticScore || 0}%)**: Evaluates sentence embeddings and contextual alignment between the candidate's actual responsibilities and the job description requirements.\n` +
+          `2. **Keyword Skill Coverage (${target.keywordScore || 0}%)**: Verified **${target.matchedSkills.length} core skills** (${target.matchedSkills.join(', ') || 'None'}).\n` +
+          `3. **Experience Depth**: **${target.experienceYears || 0.5} years** of demonstrated engineering experience.\n` +
+          `4. **Gaps & Missing Requirements**: ${target.missingSkills.join(', ') || 'None — Full coverage across job requirements'}.\n` +
+          `5. **Document Integrity**: ${target.verificationAlerts && target.verificationAlerts.length > 0 ? `⚠️ Flagged with ${target.verificationAlerts.length} anomaly warnings (fraudulent keywords excluded).` : '✓ Verified 100% clean document structure.'}`
+      };
+    }
+  }
 
   if (matchedCandidate) {
     const c = matchedCandidate;
@@ -260,7 +341,7 @@ export async function chatWithRecruiter(
     };
   }
 
-  // 3. FRAUD & INTEGRITY QUERIES ACROSS POOL
+  // 5. FRAUD & INTEGRITY QUERIES ACROSS POOL
   if (/fraud|fake|suspicious|flagged|alert|cheat|scam|adversarial/i.test(pLower)) {
     const flagged = candidateList.filter((c) => (c.verificationAlerts && c.verificationAlerts.length > 0) || c.verificationStatus === 'review_recommended');
     if (flagged.length > 0) {
@@ -291,7 +372,7 @@ export async function chatWithRecruiter(
     }
   }
 
-  // 4. CANDIDATE COMPARISONS
+  // 6. CANDIDATE COMPARISONS
   if (/compare|versus| vs /i.test(pLower)) {
     if (candidateList.length >= 2) {
       let c1 = candidateList[0];
@@ -328,7 +409,7 @@ export async function chatWithRecruiter(
     }
   }
 
-  // 5. SKILL SPECIFIC SEARCH
+  // 7. SKILL SPECIFIC SEARCH
   const techKeywords = ['python', 'react', 'typescript', 'javascript', 'angular', 'node', 'express', 'sql', 'aws', 'docker', 'kubernetes', 'mongodb', 'figma'];
   const searchedSkill = techKeywords.find((tk) => pLower.includes(tk));
 
@@ -359,7 +440,7 @@ export async function chatWithRecruiter(
     }
   }
 
-  // 6. TOP CANDIDATE RECOMMENDATION
+  // 8. TOP CANDIDATE RECOMMENDATION
   if (/best|top|recommend|hire|first|rank 1|rank #1|who should/i.test(pLower)) {
     if (candidateList.length > 0) {
       const topCandidate = [...candidateList].sort((a, b) => (b.finalScore || 0) - (a.finalScore || 0))[0];
@@ -376,18 +457,37 @@ export async function chatWithRecruiter(
     }
   }
 
-  // 7. DEFAULT CONTEXTUAL INTELLIGENCE
-  const topScore = candidateList.length > 0 ? Math.max(...candidateList.map((c) => c.finalScore || 0)) : 0;
+  // 9. EXECUTIVE POOL SUMMARY
+  if (/pool|summary|overview|status|advice|report|health/i.test(pLower)) {
+    const totalC = candidateList.length;
+    const avgScore = (candidateList.reduce((acc, curr) => acc + (curr.finalScore || 0), 0) / (totalC || 1)).toFixed(1);
+    const top3 = [...candidateList].sort((a, b) => (b.finalScore || 0) - (a.finalScore || 0)).slice(0, 3);
+    const topLines = top3.map((c, i) => `  ${i + 1}. **${c.name}** (${c.finalScore}%) — ${c.title}`).join('\n');
+
+    return {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      timestamp: time,
+      content: `### 📈 Talent Pool Executive Summary: **Senior Full Stack Engineer**\n\n` +
+        `• **Candidate Count**: ${totalC} total active applicants\n` +
+        `• **Average Match Score**: ${avgScore}%\n\n` +
+        `**Top Ranked Contenders**:\n${topLines}\n\n` +
+        `💡 **Hiring Recommendation**: Advance the top 2-3 candidates to live technical assessments. Use the FraudGuard integrity audit to review flagged items before final offers.`
+    };
+  }
+
+  // 10. GENERAL REASONING ON PROMPT
+  const topCandidates = [...candidateList].sort((a, b) => (b.finalScore || 0) - (a.finalScore || 0)).slice(0, 2);
+  const topContext = topCandidates.map((c) => `${c.name} (${c.finalScore}%)`).join(', ');
+
   return {
     id: crypto.randomUUID(),
     role: 'assistant',
     timestamp: time,
-    content: `### Recruiter Assistant Intelligence\n\n` +
-      `Active candidate pool: **${candidateList.length} candidates** (Top Match Score: **${topScore}%**).\n\n` +
-      `You can ask me to:\n` +
-      `• **Evaluate a candidate**: _\"Tell me about Arjun Sharma\"_ or _\"Is Arjun flagged?\"_\n` +
-      `• **Compare applicants**: _\"Compare the top 2 candidates\"_\n` +
-      `• **Skill lookups**: _\"Who has React experience?\"_ or _\"Which candidates know SQL?\"_\n` +
-      `• **Audit integrity**: _\"Show all fraud detection alerts\"_`
+    content: `### 💡 AI Intelligence Assessment for: _\"${prompt}\"_\n\n` +
+      `Evaluating this against our **Senior Full Stack Engineer** requirements and active pool (${candidateList.length} candidates, leading: **${topContext}**):\n\n` +
+      `1. **Core Alignment**: Top candidates demonstrate strong alignment in full-stack architecture, while secondary skills (cloud infrastructure, distributed systems) are the key differentiators.\n` +
+      `2. **Evidence-Based Evaluation**: Candidate rankings are calculated using verified project artifacts rather than unverified resume claims.\n` +
+      `3. **Suggested Next Action**: Ask me to _\"Draft interview questions for ${topCandidates[0]?.name || 'the top candidate'}\"_ or _\"Compare top 2 candidates\"_ to dive deeper.`
   };
 }
