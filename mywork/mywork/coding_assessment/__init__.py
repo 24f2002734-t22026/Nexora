@@ -1,0 +1,1 @@
+"""CodeAssess integration contracts without transport implementation."""

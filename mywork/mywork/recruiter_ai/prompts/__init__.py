@@ -1,0 +1,1 @@
+"""Prompts used by the optional response generator."""
