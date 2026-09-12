@@ -357,7 +357,6 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
                 e.preventDefault();
                 void handleAsk();
               }}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
             >
               <input
                 type="text"
@@ -366,9 +365,8 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
                 placeholder={isRecording ? 'Listening... speaking will transcribe here in real-time' : 'Type or click mic to speak with Moonshine STT...'}
                 aria-label="Ask Recruiter Assistant"
                 style={{ 
-                  flex: 1,
                   borderColor: isRecording ? '#ef4444' : undefined,
-                  boxShadow: isRecording ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : undefined
+                  boxShadow: isRecording ? '0 0 0 3px rgba(239, 68, 68, 0.2)' : undefined
                 }}
               />
 
@@ -376,19 +374,25 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
               <button
                 type="button"
                 onClick={toggleRecording}
-                className={`btn btn-secondary btn-sm ${isRecording ? 'active-recording' : ''}`}
+                className={`btn btn-secondary ${isRecording ? 'active-recording' : ''}`}
                 style={{
-                  padding: '8px 10px',
+                  height: '48px',
+                  width: '48px',
+                  minWidth: '48px',
+                  padding: 0,
+                  display: 'grid',
+                  placeItems: 'center',
                   backgroundColor: isRecording ? '#ef4444' : undefined,
                   color: isRecording ? '#ffffff' : 'var(--text-secondary)',
                   border: isRecording ? '1px solid #dc2626' : undefined,
-                  borderRadius: 'var(--radius-md)',
-                  transition: 'all 0.15s ease'
+                  borderRadius: 'var(--radius-lg)',
+                  transition: 'all 0.15s ease',
+                  flexShrink: 0
                 }}
                 title={isRecording ? 'Click to stop listening' : 'Click to speak with Moonshine Base STT'}
                 aria-label="Voice input"
               >
-                {isRecording ? <Square size={15} /> : <Mic size={15} />}
+                {isRecording ? <Square size={18} /> : <Mic size={18} />}
               </button>
 
               {/* Send Button */}
@@ -398,7 +402,7 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
                 disabled={!input.trim() || typing}
                 title="Send message"
               >
-                <ArrowRight size={16} />
+                <ArrowRight size={18} />
               </button>
             </form>
           </aside>
