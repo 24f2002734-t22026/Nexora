@@ -78,6 +78,8 @@ async def websocket_transcribe(websocket: WebSocket):
     logger.info(f"WebSocket client connected. Assigned session_id: {session_id}")
     
     audio_buffer = bytearray()
+    last_partial_time = 0.0
+    partial_lock = asyncio.Lock()
     
     # Send connection confirmation
     await websocket.send_json({
@@ -87,6 +89,29 @@ async def websocket_transcribe(websocket: WebSocket):
         "status": "ready"
     })
 
+    async def maybe_send_partial():
+        nonlocal last_partial_time
+        now = time.time()
+        # Trigger partial transcription every 500ms if buffer has grown (> 12000 bytes)
+        if len(audio_buffer) >= 12000 and (now - last_partial_time) >= 0.5:
+            if not partial_lock.locked():
+                async with partial_lock:
+                    last_partial_time = now
+                    raw_snapshot = bytes(audio_buffer)
+                    try:
+                        res = await asyncio.to_thread(transcriber.transcribe, raw_snapshot)
+                        partial_text = res.get("text", "").strip()
+                        if partial_text:
+                            await websocket.send_json({
+                                "event": "partial_transcript",
+                                "session_id": session_id,
+                                "text": partial_text,
+                                "is_final": False,
+                                "model": "moonshine/base"
+                            })
+                    except Exception as pe:
+                        logger.debug(f"Partial transcription non-fatal: {pe}")
+
     try:
         while True:
             message = await websocket.receive()
@@ -94,6 +119,7 @@ async def websocket_transcribe(websocket: WebSocket):
             # 1. Binary Audio Chunks
             if "bytes" in message and message["bytes"]:
                 audio_buffer.extend(message["bytes"])
+                asyncio.create_task(maybe_send_partial())
 
             # 2. Text / JSON Control Messages
             elif "text" in message and message["text"]:
@@ -106,6 +132,7 @@ async def websocket_transcribe(websocket: WebSocket):
 
                 if action == "start":
                     audio_buffer.clear()
+                    last_partial_time = time.time()
                     if "session_id" in payload:
                         session_id = payload["session_id"]
                     await websocket.send_json({
@@ -118,13 +145,14 @@ async def websocket_transcribe(websocket: WebSocket):
                     b64_data = payload.get("data", "")
                     if b64_data:
                         audio_buffer.extend(base64.b64decode(b64_data))
+                        asyncio.create_task(maybe_send_partial())
 
                 elif action in ("flush", "stop", "transcribe"):
                     if len(audio_buffer) > 0:
                         raw_bytes = bytes(audio_buffer)
                         audio_buffer.clear()
                         
-                        logger.info(f"Transcribing buffer ({len(raw_bytes)} bytes) with Moonshine Base...")
+                        logger.info(f"Transcribing final buffer ({len(raw_bytes)} bytes) with Moonshine Base...")
                         result = await asyncio.to_thread(transcriber.transcribe, raw_bytes)
                         
                         await websocket.send_json({

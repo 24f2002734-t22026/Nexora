@@ -363,7 +363,13 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
           <div 
             className="modal-card"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: '540px', maxHeight: '90vh', overflowY: 'auto' }}
+            style={{ 
+              maxWidth: '540px', 
+              maxHeight: '90vh', 
+              overflowY: 'auto',
+              backgroundColor: '#ffffff',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.08)'
+            }}
             role="dialog"
             aria-modal="true"
           >
