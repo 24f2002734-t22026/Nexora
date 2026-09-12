@@ -41,10 +41,6 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
   
   // Upload modal state
   const [showUploadModal, setShowUploadModal] = useState(initialOpenUpload);
-  const [uploadName, setUploadName] = useState('');
-  const [uploadEmail, setUploadEmail] = useState('');
-  const [uploadPhone, setUploadPhone] = useState('');
-  const [uploadLocation, setUploadLocation] = useState('Remote');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -91,12 +87,6 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
     }
     setSelectedFile(file);
     setUploadError(null);
-
-    // Auto-fill candidate name if empty
-    if (!uploadName) {
-      const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-      setUploadName(cleanName.replace(/\b(resume|cv|profile)\b/gi, '').trim());
-    }
   };
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
@@ -112,12 +102,7 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
     try {
       const newCand = await store.uploadCandidateResume(
         job.id,
-        {
-          name: uploadName.trim() || undefined,
-          email: uploadEmail.trim() || undefined,
-          phone: uploadPhone.trim() || undefined,
-          location: uploadLocation.trim() || undefined,
-        },
+        {},
         selectedFile
       );
 
@@ -125,9 +110,6 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
       setCandidates((prev) => [newCand, ...prev]);
       setShowUploadModal(false);
       setSelectedFile(null);
-      setUploadName('');
-      setUploadEmail('');
-      setUploadPhone('');
     } catch (err: any) {
       console.error('Failed to upload resume:', err);
       setUploadError('Error uploading resume. Please try again.');
@@ -364,173 +346,130 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
             className="modal-card"
             onClick={(e) => e.stopPropagation()}
             style={{ 
-              maxWidth: '540px', 
+              maxWidth: '520px', 
               maxHeight: '90vh', 
               overflowY: 'auto',
               backgroundColor: '#ffffff',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.08)'
+              borderRadius: '0px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.1)',
+              padding: '24px 28px'
             }}
             role="dialog"
             aria-modal="true"
           >
-            <header className="modal-header">
+            <header className="modal-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '16px', marginBottom: '20px' }}>
               <div>
-                <span className="modal-eyebrow">ATTACH RESUME</span>
-                <h2>Upload Candidate Resume</h2>
-                <p>Applying to: <b>{job.title}</b></p>
+                <span className="modal-eyebrow" style={{ color: 'var(--primary)', letterSpacing: '0.5px' }}>ATTACH RESUME</span>
+                <h2 style={{ fontSize: '18px', fontWeight: 800, margin: '4px 0 2px' }}>Upload Candidate Resume</h2>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Role: <b>{job.title}</b></p>
               </div>
               <button 
                 type="button" 
                 className="close-btn" 
                 onClick={() => setShowUploadModal(false)}
                 aria-label="Close"
+                style={{ borderRadius: '0px' }}
               >
                 <X size={18} />
               </button>
             </header>
 
-            <form onSubmit={handleUploadSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '10px' }}>
+            <form onSubmit={handleUploadSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {uploadError && (
-                <div style={{ padding: '10px 14px', backgroundColor: 'var(--danger-bg)', color: 'var(--danger-text)', borderRadius: 'var(--radius-md)', fontSize: '12px' }}>
+                <div style={{ padding: '10px 14px', backgroundColor: 'var(--danger-bg)', color: 'var(--danger-text)', border: '1px solid var(--danger-border)', fontSize: '12px' }}>
                   {uploadError}
                 </div>
               )}
 
               {/* Drag & Drop File Box */}
               <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                  Resume Document (PDF or DOCX) *
-                </label>
                 <div
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={handleFileDrop}
                   onClick={() => fileInputRef.current?.click()}
                   className={`dropzone-box ${selectedFile ? 'has-file' : ''}`}
-                  style={{ padding: '24px 16px', textAlign: 'center', cursor: 'pointer' }}
+                  style={{ 
+                    padding: '36px 20px', 
+                    textAlign: 'center', 
+                    cursor: 'pointer',
+                    borderRadius: '0px',
+                    border: selectedFile ? '2px solid var(--primary)' : '2px dashed var(--border-strong)',
+                    backgroundColor: selectedFile ? 'var(--primary-light)' : '#fafbfc'
+                  }}
                 >
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".pdf,.docx,.doc"
+                    accept=".pdf,.docx,.doc,.txt"
                     onChange={handleFileChange}
                     style={{ display: 'none' }}
                   />
                   {selectedFile ? (
                     <div>
-                      <FileText size={28} style={{ color: 'var(--primary)', margin: '0 auto 6px' }} />
-                      <b style={{ display: 'block', fontSize: '13px', color: 'var(--text-primary)' }}>{selectedFile.name}</b>
-                      <small style={{ color: 'var(--text-muted)' }}>
-                        {(selectedFile.size / 1024).toFixed(1)} KB · Click to replace
+                      <div 
+                        style={{ 
+                          width: '46px', 
+                          height: '46px', 
+                          backgroundColor: '#ffffff', 
+                          border: '1px solid var(--primary-subtle)', 
+                          display: 'grid', 
+                          placeItems: 'center',
+                          margin: '0 auto 10px',
+                          color: 'var(--primary)'
+                        }}
+                      >
+                        <FileText size={24} />
+                      </div>
+                      <b style={{ display: 'block', fontSize: '14px', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                        {selectedFile.name}
+                      </b>
+                      <small style={{ color: 'var(--text-muted)', display: 'block' }}>
+                        {(selectedFile.size / 1024).toFixed(1)} KB · Click or drop another file to replace
                       </small>
                     </div>
                   ) : (
                     <div>
-                      <Upload size={28} style={{ color: 'var(--text-light)', margin: '0 auto 6px' }} />
-                      <b style={{ display: 'block', fontSize: '13px' }}>Drop candidate resume here</b>
-                      <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '2px 0' }}>or click to browse files</p>
-                      <small style={{ fontSize: '10px', color: 'var(--text-light)' }}>Supports PDF, DOCX (up to 25MB)</small>
+                      <div 
+                        style={{ 
+                          width: '46px', 
+                          height: '46px', 
+                          backgroundColor: '#ffffff', 
+                          border: '1px solid var(--border-color)', 
+                          display: 'grid', 
+                          placeItems: 'center',
+                          margin: '0 auto 10px',
+                          color: 'var(--text-muted)'
+                        }}
+                      >
+                        <Upload size={22} />
+                      </div>
+                      <b style={{ display: 'block', fontSize: '14px', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                        Drop candidate resume document here
+                      </b>
+                      <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 6px' }}>
+                        or click to browse from your computer
+                      </p>
+                      <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 600, backgroundColor: '#ffffff', border: '1px solid var(--primary-subtle)', padding: '3px 10px' }}>
+                        PDF, DOCX, DOC
+                      </span>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Candidate Info Fields */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                    Candidate Name
-                  </label>
-                  <input
-                    type="text"
-                    value={uploadName}
-                    onChange={(e) => setUploadName(e.target.value)}
-                    placeholder="e.g. Alex Johnson"
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border-color)',
-                      fontSize: '12px',
-                      backgroundColor: '#ffffff'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    value={uploadEmail}
-                    onChange={(e) => setUploadEmail(e.target.value)}
-                    placeholder="alex@example.com"
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border-color)',
-                      fontSize: '12px',
-                      backgroundColor: '#ffffff'
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                    Phone Number
-                  </label>
-                  <input
-                    type="text"
-                    value={uploadPhone}
-                    onChange={(e) => setUploadPhone(e.target.value)}
-                    placeholder="+1 (555) 234-5678"
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border-color)',
-                      fontSize: '12px',
-                      backgroundColor: '#ffffff'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                    Location
-                  </label>
-                  <input
-                    type="text"
-                    value={uploadLocation}
-                    onChange={(e) => setUploadLocation(e.target.value)}
-                    placeholder="San Francisco, CA"
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border-color)',
-                      fontSize: '12px',
-                      backgroundColor: '#ffffff'
-                    }}
-                  />
-                </div>
-              </div>
-
               {/* Informational Callout */}
-              <div style={{ padding: '10px 14px', backgroundColor: 'var(--primary-light)', border: '1px solid var(--primary-subtle)', borderRadius: 'var(--radius-md)', fontSize: '12px', color: 'var(--primary-text)' }}>
+              <div style={{ padding: '12px 14px', backgroundColor: 'var(--primary-light)', border: '1px solid var(--primary-subtle)', borderRadius: '0px', fontSize: '12px', color: 'var(--primary-text)' }}>
                 <Sparkles size={14} style={{ display: 'inline', marginRight: '6px', verticalAlign: '-2px' }} />
-                The resume will be securely attached to this job opening. Match score will be marked <b>Pending</b> until AI intelligence scan is triggered.
+                Candidate name, contact details, and skill evidence will be parsed automatically from the resume document.
               </div>
 
               {/* Action Buttons */}
-              <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <div style={{ marginTop: '8px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 <button
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => setShowUploadModal(false)}
+                  style={{ borderRadius: '0px' }}
                 >
                   Cancel
                 </button>
@@ -538,14 +477,15 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
                   type="submit"
                   disabled={uploading || !selectedFile}
                   className="btn btn-primary"
+                  style={{ borderRadius: '0px' }}
                 >
                   {uploading ? (
                     <>
-                      <Loader2 size={14} className="animate-spin" /> Uploading...
+                      <Loader2 size={14} className="animate-spin" /> Uploading Document...
                     </>
                   ) : (
                     <>
-                      <Upload size={14} /> Attach Resume to Job
+                      <Upload size={14} /> Attach Resume Document
                     </>
                   )}
                 </button>
