@@ -68,7 +68,13 @@ export const CreateJobModal: React.FC<CreateJobModalProps> = ({ onClose, onJobCr
       <div 
         className="modal-card" 
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: '640px', maxHeight: '90vh', overflowY: 'auto' }}
+        style={{ 
+          maxWidth: '640px', 
+          maxHeight: '90vh', 
+          overflowY: 'auto',
+          backgroundColor: '#ffffff',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.08)'
+        }}
         role="dialog"
         aria-modal="true"
       >
