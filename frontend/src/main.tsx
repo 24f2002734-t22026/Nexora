@@ -418,9 +418,9 @@ function DashboardPage() {
                 <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} allowDecimals={false} />
                 <Tooltip
                   formatter={(value) => [`${value} Candidates`, 'Count']}
-                  contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  contentStyle={{ backgroundColor: '#fff', borderRadius: '0px', border: '1px solid #e2e8f0' }}
                 />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                <Bar dataKey="count" radius={[0, 0, 0, 0]}>
                   {scoreDistribution.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
                   ))}
@@ -450,9 +450,9 @@ function DashboardPage() {
                     `${val} Candidates`,
                     name === 'matching' ? 'Matching' : 'Missing',
                   ]}
-                  contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  contentStyle={{ backgroundColor: '#fff', borderRadius: '0px', border: '1px solid #e2e8f0' }}
                 />
-                <Bar dataKey="matching" fill="#2563eb" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="matching" fill="#2563eb" radius={[0, 0, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -480,7 +480,7 @@ function DashboardPage() {
                 </Pie>
                 <Tooltip
                   formatter={(val) => [`${val} Candidates`, 'Count']}
-                  contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  contentStyle={{ backgroundColor: '#fff', borderRadius: '0px', border: '1px solid #e2e8f0' }}
                 />
               </PieChart>
             </ResponsiveContainer>

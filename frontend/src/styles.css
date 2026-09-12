@@ -59,10 +59,10 @@
   --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
   --shadow-drawer: -4px 0 24px rgba(15, 23, 42, 0.12);
 
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
 }
 
 body {
@@ -815,7 +815,7 @@ p {
 .legend-color-dot {
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  border-radius: 0;
   flex-shrink: 0;
 }
 
@@ -856,7 +856,7 @@ p {
 .gap-tag {
   font-size: 10px;
   padding: 2px 6px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   font-weight: 600;
 }
 
@@ -873,14 +873,14 @@ p {
 .gap-bar-wrap {
   background-color: var(--bg-subtle);
   height: 8px;
-  border-radius: 4px;
+  border-radius: 0;
   overflow: hidden;
 }
 
 .gap-bar-fill {
   background-color: #f59e0b;
   height: 100%;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 .gap-count {

@@ -16,6 +16,7 @@
     "lucide-react": "latest",
     "mammoth": "^1.12.2",
     "motion": "latest",
+    "pdfjs-dist": "^3.11.174",
     "react": "latest",
     "react-dom": "latest",
     "react-dropzone": "latest",

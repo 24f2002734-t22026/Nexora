@@ -11,7 +11,9 @@ import {
   Building2, 
   Clock, 
   X,
-  Eye
+  Eye,
+  UploadCloud,
+  Sparkles
 } from 'lucide-react';
 import type { JobOpening } from '../types';
 import { store } from '../services/store';
@@ -87,8 +89,9 @@ export const JobOpeningsTable: React.FC<JobOpeningsTableProps> = ({
           type="button"
           className="btn btn-primary"
           onClick={() => setShowCreateModal(true)}
+          style={{ borderRadius: '0px' }}
         >
-          <Plus size={16} /> Create Job Opening
+          <UploadCloud size={16} /> Upload JD & Create Opening
         </button>
       </div>
 
