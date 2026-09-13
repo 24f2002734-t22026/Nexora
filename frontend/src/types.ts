@@ -102,6 +102,9 @@ export interface CandidateProject {
   relevanceToJd?: 'High' | 'Moderate' | 'Low';
   period?: string;
   contribution?: string;
+  link?: string;
+  github?: string;
+  demoUrl?: string;
 }
 
 export interface CandidateExperience {

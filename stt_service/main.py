@@ -235,7 +235,7 @@ async def analyze_resume_endpoint(
     """
     Analyzes an uploaded candidate resume file (.pdf, .docx, .txt):
     1. Extracts text with pdfplumber + EasyOCR fallback on scanned pages + python-docx.
-    2. Deep scans for fraud signals (white-fonting, tiny text, off-margin ATS keyword stuffing, timeline overlaps).
+    2. Deep scans for fraud signals (white-fonting, tiny text, off-margin ATS keyword stuffing, prompt injections).
     3. Extracts candidate profile, work history, evidenced skills, and education.
     4. Calculates dual semantic and keyword match scores against the target job.
     """

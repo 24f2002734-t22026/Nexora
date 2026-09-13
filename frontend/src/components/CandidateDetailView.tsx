@@ -223,13 +223,6 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
               Compare Candidate
             </button>
           )}
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => window.print()}
-          >
-            <FileText size={15} /> Export Dossier
-          </button>
         </div>
       </div>
 
@@ -474,34 +467,6 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
                 <p className="text-xs text-slate-500 italic">Education details on file in attached resume.</p>
               )}
             </div>
-
-            {/* External Profile Evidence */}
-            {c.externalEvidence && (
-              <div className="external-evidence-card">
-                <div className="external-head">
-                  <Code2 size={14} />
-                  <span>External Profile Evidence</span>
-                </div>
-                {c.externalEvidence.githubRepos && (
-                  <div className="ext-repos">
-                    <small>Sample Public Repositories:</small>
-                    <ul>
-                      {c.externalEvidence.githubRepos.map((repo) => (
-                        <li key={repo}>
-                          <code>{repo}</code>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {c.externalEvidence.profileHealth && (
-                  <div className="ext-health">
-                    <Sparkles size={12} />
-                    <span>{c.externalEvidence.profileHealth}</span>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </aside>
 
@@ -641,6 +606,85 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
                         ))}
                       </div>
                     )}
+                    {(proj.link || proj.github || proj.demoUrl || c.links?.github) && (
+                      <div className="project-links-row" style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
+                        {(proj.link || proj.github) && (
+                          <a
+                            href={proj.link || proj.github}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="project-link-badge"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              fontSize: '11.5px',
+                              padding: '3px 8px',
+                              borderRadius: 'var(--radius-xs)',
+                              backgroundColor: 'var(--bg-subtle)',
+                              color: 'var(--text-primary)',
+                              border: '1px solid var(--border-color)',
+                              textDecoration: 'none',
+                              fontWeight: 500,
+                            }}
+                          >
+                            <Globe size={11} />
+                            <span>Repository</span>
+                            <ExternalLink size={10} style={{ opacity: 0.7 }} />
+                          </a>
+                        )}
+                        {proj.demoUrl && (
+                          <a
+                            href={proj.demoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="project-link-badge"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              fontSize: '11.5px',
+                              padding: '3px 8px',
+                              borderRadius: 'var(--radius-xs)',
+                              backgroundColor: 'var(--bg-subtle)',
+                              color: 'var(--text-primary)',
+                              border: '1px solid var(--border-color)',
+                              textDecoration: 'none',
+                              fontWeight: 500,
+                            }}
+                          >
+                            <Globe size={11} />
+                            <span>Live Demo</span>
+                            <ExternalLink size={10} style={{ opacity: 0.7 }} />
+                          </a>
+                        )}
+                        {!proj.link && !proj.github && !proj.demoUrl && c.links?.github && (
+                          <a
+                            href={`${c.links.github}/${proj.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="project-link-badge"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              fontSize: '11.5px',
+                              padding: '3px 8px',
+                              borderRadius: 'var(--radius-xs)',
+                              backgroundColor: 'var(--bg-subtle)',
+                              color: 'var(--text-primary)',
+                              border: '1px solid var(--border-color)',
+                              textDecoration: 'none',
+                              fontWeight: 500,
+                            }}
+                          >
+                            <Globe size={11} />
+                            <span>View Project Repo</span>
+                            <ExternalLink size={10} style={{ opacity: 0.7 }} />
+                          </a>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -663,19 +707,14 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
             {c.workHistory && c.workHistory.length > 0 ? (
               <div className="experience-list">
                 {c.workHistory.map((job, jIdx) => (
-                  <div key={jIdx} className={`experience-card ${job.isOverlap ? 'has-overlap-flag' : ''}`}>
+                  <div key={jIdx} className="experience-card">
                     <div className="exp-top-row">
                       <div>
                         <b className="exp-role">{job.role}</b>
-                        <div className="exp-company">{job.company}</div>
+                        <div className="exp-company">{job.company || (job as any).organization}</div>
                       </div>
                       <div className="exp-period-wrap">
                         <span className="exp-period">{job.period}</span>
-                        {job.isOverlap && (
-                          <span className="overlap-indicator-badge">
-                            <AlertTriangle size={11} /> Timeline Overlap
-                          </span>
-                        )}
                       </div>
                     </div>
                     {job.highlights && job.highlights.length > 0 && (
@@ -793,12 +832,6 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
                 </div>
               </div>
             )}
-
-            {/* Rationale Explanation */}
-            <div className="explanation-box">
-              <h4>Candidate Fit Assessment</h4>
-              <p>{c.explanation}</p>
-            </div>
           </div>
 
           {/* =========================================================================
@@ -855,12 +888,6 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
                         <div className="timeline-detail-box">
                           <small>Detected Hidden / Injected Content:</small>
                           <code>{detected}</code>
-                        </div>
-                      )}
-                      {alert.timelineDetails && (
-                        <div className="timeline-detail-box">
-                          <small>Detected Overlap Range:</small>
-                          <code>{alert.timelineDetails}</code>
                         </div>
                       )}
                     </div>

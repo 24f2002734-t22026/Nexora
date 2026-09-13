@@ -112,7 +112,6 @@ export const candidates: Candidate[] = [
         role: 'Associate Software Engineer (Internship A)',
         period: 'January 2025 – June 2025',
         isInternship: true,
-        isOverlap: true,
         relevanceToJd: 'High',
         technologies: ['React', 'Python', 'SQL'],
         highlights: [
@@ -125,7 +124,6 @@ export const candidates: Candidate[] = [
         role: 'Research Intern (Internship B)',
         period: 'March 2025 – August 2025',
         isInternship: true,
-        isOverlap: true,
         relevanceToJd: 'Moderate',
         technologies: ['Angular', 'TypeScript'],
         highlights: [

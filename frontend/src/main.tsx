@@ -644,7 +644,7 @@ function DashboardPage() {
             <div className="top-card-footer">
               <span className="top-exp">{c.experienceYears} Years Exp</span>
               <span className="view-link">
-                View Dossier <ChevronRight size={13} />
+                View Profile <ChevronRight size={13} />
               </span>
             </div>
           </div>
@@ -1029,7 +1029,7 @@ function AnalysisResultsPage() {
       {/* Header */}
       <div className="results-header-banner">
         <div>
-          <span className="eyebrow">RECRUITMENT INTELLIGENCE DOSSIER</span>
+          <span className="eyebrow">RECRUITMENT INTELLIGENCE & RANKINGS</span>
           <h1>Senior Full Stack Engineer</h1>
           <p>
             Full_Stack_Developer_JD.pdf · <b>18</b> Candidates Evaluated · Completed Sep 12, 2026
@@ -1152,7 +1152,7 @@ function AnalysisResultsPage() {
               {c.verificationAlerts.length > 0 && (
                 <div className="why-alert-badge">
                   <ShieldAlert size={12} />
-                  <span>Review Recommended: Timeline overlap</span>
+                  <span>Review Recommended: Anomaly detected</span>
                 </div>
               )}
 
@@ -1162,7 +1162,7 @@ function AnalysisResultsPage() {
                   className="btn btn-secondary btn-sm full-width"
                   onClick={() => navigate(`/candidate/${c.id}`)}
                 >
-                  View Candidate Dossier <ArrowRight size={13} />
+                  View Candidate Profile <ArrowRight size={13} />
                 </button>
               </div>
             </article>
@@ -1664,7 +1664,7 @@ function CandidateDetailsPage() {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-slate-400">
         <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
-        <p className="text-sm font-medium">Loading candidate dossier...</p>
+        <p className="text-sm font-medium">Loading candidate profile...</p>
       </div>
     );
   }
