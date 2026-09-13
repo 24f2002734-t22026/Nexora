@@ -427,7 +427,7 @@ async def chatbot_endpoint(payload: Dict[str, Any]):
                                 f"**Status**: **Verified Clean** · No Anomalies Detected\n\n"
                                 f"• **Typography**: Passed font size standards (≥ 8pt)\n"
                                 f"• **Formatting**: Passed boundary & zero white-font contrast checks\n"
-                                f"• **Timeline**: Verified chronological employment and degree history."
+                                f"• **Integrity**: Passed all adversarial prompt injection scans."
                 }
 
         # General dossier for the candidate
@@ -465,7 +465,7 @@ async def chatbot_endpoint(payload: Dict[str, Any]):
             return {
                 "response": f"### ✓ Nexora FraudGuard Pool Audit\n\n"
                             f"**All {len(candidates)} candidates in the active pool are verified clean**.\n\n"
-                            f"Zero hidden text layers, invisible white-fonting (RGB 255), microscopic typography, or timeline overlap conflicts were detected."
+                            f"Zero hidden text layers, invisible white-fonting (RGB 255), or microscopic typography manipulations were detected."
             }
 
     # 7. CANDIDATE COMPARISON QUERIES

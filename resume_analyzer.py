@@ -149,8 +149,7 @@ def _get_fraud_title(fraud_type: str) -> str:
         "tiny_text": "1.0pt Micro-Font ATS Keyword Injection",
         "off_margin_text": "Off-Margin Injected Metadata",
         "hidden_behind_image": "Text Hidden Behind Image Layer",
-        "prompt_injection": "Adversarial Prompt Injection Attempt",
-        "timeline_anomaly": "Timeline Chronological Conflict"
+        "prompt_injection": "Adversarial Prompt Injection Attempt"
     }
     return titles.get(fraud_type, "Formatting Anomaly Detected")
 

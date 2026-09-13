@@ -324,7 +324,7 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textAlign: 'left', maxWidth: '240px' }}
                         title="Open Document in Viewer"
                       >
-                        <FileText size={14} style={{ color: isDocx ? '#6366f1' : '#e11d48', flexShrink: 0 }} />
+                        <FileText size={14} style={{ color: isDocx ? '#2563eb' : '#e11d48', flexShrink: 0 }} />
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px' }}>
                           {resume?.fileName || `${candidate.name}_Resume.pdf`}
                         </span>

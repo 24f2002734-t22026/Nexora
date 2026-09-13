@@ -19,7 +19,9 @@ import {
   Clock,
   Layers,
   Check,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  XCircle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { AssessmentResult, Candidate, CandidateEvidence, SkillEvidence } from '../types';
@@ -41,6 +43,7 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
   const navigate = useNavigate();
   const [localCandidate, setLocalCandidate] = useState(candidate);
   const [skillFilter, setSkillFilter] = useState<'all' | 'matched' | 'missing'>('all');
+  const [showRequiredSkillsDropdown, setShowRequiredSkillsDropdown] = useState(false);
   const [showResumeViewer, setShowResumeViewer] = useState(false);
   const [assessment, setAssessment] = useState<AssessmentResult | null>(candidate.assessmentResult || null);
   const [evidence, setEvidence] = useState<CandidateEvidence | null>(candidate.evidence || null);
@@ -119,8 +122,6 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
       case 'off_margin_text': return 'Off-Margin Injected Metadata';
       case 'hidden_behind_image': return 'Text Hidden Behind Image Layer';
       case 'prompt_injection': return 'Adversarial Prompt Injection Attempt';
-      case 'timeline_overlap':
-      case 'timeline_anomaly': return 'Timeline Chronological Conflict';
       default: return 'Formatting Anomaly Detected';
     }
   };
@@ -167,11 +168,13 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
 
   const skillEvidenceMap = getComputedSkillEvidence();
   const skillEntries = Object.entries(skillEvidenceMap);
-  const filteredSkills = skillEntries.filter(([_, ev]) => {
-    if (skillFilter === 'matched') return ev.level !== 'not_found';
-    if (skillFilter === 'missing') return ev.level === 'not_found';
-    return true;
-  });
+
+  const jobRequiredSkills = Array.from(
+    new Set([...(c.matchedSkills || []), ...(c.missingSkills || [])])
+  );
+  const candidateResumeSkills: string[] = (c.matchedSkills && c.matchedSkills.length > 0)
+    ? c.matchedSkills
+    : skillEntries.filter(([_, e]) => e.level !== 'not_found').map(([s]) => s);
 
   const alerts = c.verificationAlerts || [];
   const isSuspicious = alerts.length > 0 || c.verificationStatus === 'review_recommended';
@@ -506,77 +509,105 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
             COLUMN 2: SKILLS & EXPERIENCE EVIDENCE
             ========================================================================= */}
         <section className="col-skills-experience">
-          {/* Section: Technical Skills & Evidence */}
+          {/* Section: Technical Skills */}
           <div className="content-card">
-            <div className="card-heading-bar">
+            <div className="card-heading-bar" style={{ position: 'relative' }}>
               <div>
-                <h2>Technical Skills & Evidence</h2>
-                <p>Multi-source evidence extracted from resume text, projects, and work history.</p>
+                <h2>Technical Skills (Candidate Profile)</h2>
+                <p>Verified skills directly detected in candidate's resume and verified work history.</p>
               </div>
-              {skillEntries.length > 0 && (
-                <div className="filter-pill-group">
-                  <button
-                    type="button"
-                    className={`filter-pill ${skillFilter === 'all' ? 'active' : ''}`}
-                    onClick={() => setSkillFilter('all')}
-                  >
-                    All ({skillEntries.length})
-                  </button>
-                  <button
-                    type="button"
-                    className={`filter-pill ${skillFilter === 'matched' ? 'active' : ''}`}
-                    onClick={() => setSkillFilter('matched')}
-                  >
-                    Evidenced ({c.matchedSkills?.length || skillEntries.filter(([_, e]) => e.level !== 'not_found').length})
-                  </button>
-                  <button
-                    type="button"
-                    className={`filter-pill ${skillFilter === 'missing' ? 'active' : ''}`}
-                    onClick={() => setSkillFilter('missing')}
-                  >
-                    Gaps ({c.missingSkills?.length || skillEntries.filter(([_, e]) => e.level === 'not_found').length})
-                  </button>
-                </div>
-              )}
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setShowRequiredSkillsDropdown((prev) => !prev)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '12px',
+                    padding: '6px 12px',
+                    backgroundColor: showRequiredSkillsDropdown ? 'var(--bg-subtle-hover)' : 'var(--bg-surface)',
+                  }}
+                >
+                  <FileText size={13} />
+                  <span>Job Required Skills ({jobRequiredSkills.length})</span>
+                  <ChevronDown
+                    size={13}
+                    style={{
+                      transform: showRequiredSkillsDropdown ? 'rotate(180deg)' : 'none',
+                      transition: 'transform 0.2s ease',
+                    }}
+                  />
+                </button>
+
+                {showRequiredSkillsDropdown && (
+                  <div className="required-skills-dropdown-popover">
+                    <div className="dropdown-popover-header">
+                      <div>
+                        <strong>Job Requirements</strong>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                          {c.matchedSkills?.length || 0} of {jobRequiredSkills.length} skills matched
+                        </div>
+                      </div>
+                      <span className="dropdown-match-badge">
+                        {Math.round(((c.matchedSkills?.length || 0) / Math.max(1, jobRequiredSkills.length)) * 100)}% Match
+                      </span>
+                    </div>
+                    <div className="dropdown-skills-list">
+                      {jobRequiredSkills.map((skill) => {
+                        const isMatched = (c.matchedSkills || []).includes(skill);
+                        return (
+                          <div key={skill} className={`dropdown-skill-row ${isMatched ? 'matched' : 'missing'}`}>
+                            <div className="dropdown-skill-left">
+                              {isMatched ? (
+                                <CheckCircle2 size={13} style={{ color: 'var(--success)', flexShrink: 0 }} />
+                              ) : (
+                                <XCircle size={13} style={{ color: 'var(--text-light)', flexShrink: 0 }} />
+                              )}
+                              <span className="dropdown-skill-name">{skill}</span>
+                            </div>
+                            <span className={`dropdown-skill-pill ${isMatched ? 'evidenced' : 'gap'}`}>
+                              {isMatched ? 'Present' : 'Missing'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {skillEntries.length > 0 ? (
-              <div className="skill-evidence-grid">
-                {filteredSkills.map(([skillName, ev]) => (
-                  <div key={skillName} className={`skill-evidence-item ${ev.level}`}>
-                    <div className="skill-ev-header">
-                      <div className="flex items-center gap-2">
-                        <b className="skill-title">{skillName}</b>
-                        <span className={`priority-tag ${ev.priority}`}>{ev.priority}</span>
+            {candidateResumeSkills.length > 0 ? (
+              <div className="candidate-skills-compact-grid">
+                {candidateResumeSkills.map((skillName) => {
+                  const ev = skillEvidenceMap[skillName];
+                  return (
+                    <div key={skillName} className="candidate-skill-compact-badge">
+                      <div className="skill-badge-top">
+                        <span className="skill-badge-title">{skillName}</span>
+                        <span className="skill-badge-status">
+                          <CheckCircle2 size={11} /> Verified
+                        </span>
                       </div>
-                      {evidenceLevelBadge(ev.level)}
+                      <div className="skill-badge-bottom">
+                        {ev?.yearsOfExperience ? (
+                          <span className="skill-badge-tag">{ev.yearsOfExperience}y exp</span>
+                        ) : (
+                          <span className="skill-badge-tag">Evidenced</span>
+                        )}
+                        {ev?.inProjects && <span className="skill-badge-tag">Projects</span>}
+                        {ev?.inWorkHistory && <span className="skill-badge-tag">Experience</span>}
+                      </div>
                     </div>
-
-                    <ul className="evidence-points">
-                      {ev.details.map((detail, dIdx) => (
-                        <li key={dIdx}>{detail}</li>
-                      ))}
-                    </ul>
-
-                    {ev.level !== 'not_found' && (
-                      <div className="evidence-tags-row">
-                        {ev.inProjects && <span className="evidence-subtag">Used in Projects</span>}
-                        {ev.inWorkHistory && <span className="evidence-subtag">Work Experience</span>}
-                        {ev.yearsOfExperience ? (
-                          <span className="evidence-subtag">{ev.yearsOfExperience} yrs demonstrated</span>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
-              <div className="py-8 text-center bg-slate-950/40 border border-slate-800">
-                <Clock className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-                <p className="text-sm font-semibold text-slate-300">Skills Parsing Pending</p>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-                  The applicant's resume is safely uploaded. Trigger the AI intelligence scan when ready to parse comprehensive skill evidence.
-                </p>
+              <div className="py-6 text-center bg-subtle" style={{ borderRadius: 'var(--radius-xs)', padding: '16px' }}>
+                <Clock size={20} className="text-muted" style={{ margin: '0 auto 6px' }} />
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>No skills parsed on resume yet.</p>
               </div>
             )}
           </div>

@@ -146,7 +146,7 @@ export const candidates: Candidate[] = [
       projectEvidenceLevel: 'Strong',
       experienceEvidenceLevel: 'Moderate',
       claimSpecificity: 'High',
-      timelineConsistency: 'Review Recommended',
+      timelineConsistency: 'Verified',
       aiWritingSignal: 'Low'
     },
     links: {
@@ -159,19 +159,8 @@ export const candidates: Candidate[] = [
       detectedTech: ['Angular', 'TypeScript', 'Python', 'PostgreSQL', 'React'],
       profileHealth: 'Active contributor · 840+ commits in the past 12 months'
     },
-    verificationAlerts: [
-      {
-        id: 'alert_1_overlap',
-        type: 'timeline_overlap',
-        severity: 'warning',
-        title: 'Potential internship timeline overlap detected',
-        message: 'Internship at Apex Cloud Labs (Jan 2025 – Jun 2025) overlaps with Vanguard Data Solutions (Mar 2025 – Aug 2025). This timeline should be verified during interview screening. The candidate’s 92.4% Match Score evaluates technical qualifications independently.',
-        timelineDetails: 'Apex Cloud Labs (Jan 2025 – Jun 2025) vs Vanguard Data Solutions (Mar 2025 – Aug 2025)',
-        reviewRecommended: true,
-        impactOnScore: 0
-      }
-    ],
-    verificationStatus: 'review_recommended',
+    verificationAlerts: [],
+    verificationStatus: 'verified',
     skillEvidence: {
       Python: { skill: 'Python', priority: 'required', level: 'strong', details: ['Listed in primary technical skills', 'Implemented in 2 production services', 'Extensive backend microservices experience at CognitiveScale'], yearsOfExperience: 3.5, inProjects: true, inSkillsSection: true, inWorkHistory: true },
       Angular: { skill: 'Angular', priority: 'required', level: 'strong', details: ['Listed in technical skills', 'Used in Enterprise Fleet Portal project', 'Production Angular 16 micro-frontends with RxJS'], yearsOfExperience: 2.5, inProjects: true, inSkillsSection: true, inWorkHistory: true },

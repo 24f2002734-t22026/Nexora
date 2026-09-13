@@ -18,6 +18,7 @@ import {
   Bell,
   Check,
   ChevronRight,
+  ChevronLeft,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -86,10 +87,10 @@ const useAuth = () => useContext(AuthContext);
 // ---------------------------------------------------------------------------
 // APPLICATION SHELL & BRAND LOGO
 // ---------------------------------------------------------------------------
-export function NexoraLogo({ className = '', size = 36 }: { className?: string; size?: number }) {
+export function NexoraLogo({ className = '', size = 32, collapsed = false }: { className?: string; size?: number; collapsed?: boolean }) {
   return (
-    <div className={`nexora-logo ${className}`}>
-      <div className="logo-mark" style={{ width: size, height: size }}>
+    <div className={`nexora-logo ${collapsed ? 'collapsed' : ''} ${className}`}>
+      <div className="logo-mark" style={{ width: size, height: size, minWidth: size }}>
         <svg
           width={Math.round(size * 0.65)}
           height={Math.round(size * 0.65)}
@@ -99,13 +100,12 @@ export function NexoraLogo({ className = '', size = 36 }: { className?: string; 
         >
           <defs>
             <linearGradient id="nexoraGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#93c5fd" />
-              <stop offset="50%" stopColor="#3b82f6" />
-              <stop offset="100%" stopColor="#1d4ed8" />
+              <stop offset="0%" stopColor="#3f3f46" />
+              <stop offset="100%" stopColor="#09090b" />
             </linearGradient>
             <linearGradient id="nexoraGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#60a5fa" />
-              <stop offset="100%" stopColor="#2563eb" />
+              <stop offset="0%" stopColor="#71717a" />
+              <stop offset="100%" stopColor="#18181b" />
             </linearGradient>
           </defs>
           {/* Left Vertical Pillar */}
@@ -119,10 +119,12 @@ export function NexoraLogo({ className = '', size = 36 }: { className?: string; 
           <path d="M14 9.5V18.5M9.5 14H18.5" stroke="#ffffff" strokeWidth="1" strokeLinecap="square" />
         </svg>
       </div>
-      <div className="logo-text">
-        <span className="brand-name">NEXORA</span>
-        <span className="brand-subtitle">TALENT INTELLIGENCE</span>
-      </div>
+      {!collapsed && (
+        <div className="logo-text">
+          <span className="brand-name">NEXORA</span>
+          <span className="brand-subtitle">TALENT INTELLIGENCE</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -130,21 +132,30 @@ export function NexoraLogo({ className = '', size = 36 }: { className?: string; 
 function AppShell({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const navigate = useNavigate();
 
   const navItems: [string, React.ComponentType<{ size?: number }>, string][] = [
     ['/dashboard', LayoutDashboard, 'Dashboard'],
     ['/analysis', Briefcase, 'Job Openings'],
-    ['/candidates', Users, 'Candidates'],
     ['/settings', Settings, 'Settings'],
   ];
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${sidebarCollapsed ? 'sidebar-is-collapsed' : ''}`}>
       {/* Sidebar Navigation */}
-      <aside className={`app-sidebar ${mobileMenuOpen ? 'open' : ''}`}>
+      <aside className={`app-sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${mobileMenuOpen ? 'open' : ''}`}>
         <div className="sidebar-brand">
-          <NexoraLogo />
+          <NexoraLogo size={30} collapsed={sidebarCollapsed} />
+          <button
+            type="button"
+            className="sidebar-collapse-toggle-btn"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+          </button>
         </div>
 
         <nav className="sidebar-nav">
@@ -154,22 +165,25 @@ function AppShell({ children }: { children: React.ReactNode }) {
               to={to}
               onClick={() => setMobileMenuOpen(false)}
               className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+              title={sidebarCollapsed ? label : undefined}
             >
               <Icon size={18} />
-              <span>{label}</span>
+              {!sidebarCollapsed && <span>{label}</span>}
             </NavLink>
           ))}
         </nav>
 
         <div className="sidebar-footer">
-          <div className="user-profile-widget">
+          <div className={`user-profile-widget ${sidebarCollapsed ? 'collapsed' : ''}`}>
             <div className="avatar avatar-sm">
               {user?.name ? user.name.slice(0, 2).toUpperCase() : 'AR'}
             </div>
-            <div className="user-meta">
-              <span className="user-name">{user?.name || 'Alex Recruiter'}</span>
-              <small className="user-email">{user?.email || 'alex@nexora.app'}</small>
-            </div>
+            {!sidebarCollapsed && (
+              <div className="user-meta">
+                <span className="user-name">{user?.name || 'Alex Recruiter'}</span>
+                <small className="user-email">{user?.email || 'alex@nexora.app'}</small>
+              </div>
+            )}
             <button
               type="button"
               className="signout-btn"
@@ -184,7 +198,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Content Area */}
-      <div className="app-main-viewport">
+      <div className={`app-main-viewport ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <header className="topbar">
           <button
             type="button"
@@ -195,6 +209,16 @@ function AppShell({ children }: { children: React.ReactNode }) {
             <Menu size={20} />
           </button>
 
+          <button
+            type="button"
+            className="desktop-sidebar-toggle-btn"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label="Toggle sidebar"
+          >
+            {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
+
           <div className="topbar-context">
             <span className="topbar-crumb">Workspace / Candidate Intelligence</span>
             <h2 className="topbar-title">Senior Full Stack Engineer</h2>
@@ -203,11 +227,11 @@ function AppShell({ children }: { children: React.ReactNode }) {
           <div className="topbar-actions">
             <div
               className="topbar-search-bar"
-              onClick={() => navigate('/candidates')}
-              title="Search candidate pool"
+              onClick={() => navigate('/analysis')}
+              title="Search job openings & candidates"
             >
               <Search size={15} />
-              <span>Search candidate pool or skills...</span>
+              <span>Search job openings or skills...</span>
             </div>
 
             <button
@@ -215,7 +239,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
               className="icon-button"
               title="Notifications"
               aria-label="Notifications"
-              onClick={() => toast.info('All 18 candidates processed successfully.')}
+              onClick={() => toast.info('Candidate intelligence scans active.')}
             >
               <Bell size={18} />
             </button>
@@ -226,7 +250,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="page-content">{children}</main>
+        <main className="app-main-content">{children}</main>
       </div>
     </div>
   );
@@ -1781,7 +1805,7 @@ function App() {
               <Route path="/analysis/new" element={<NewAnalysisPage />} />
               <Route path="/analysis/:id/loading" element={<LoadingPage />} />
               <Route path="/analysis/:id/results" element={<AnalysisResultsPage />} />
-              <Route path="/candidates" element={<CandidatesPage />} />
+              <Route path="/candidates" element={<AnalysisJobOpeningsPage />} />
               <Route path="/candidate/:id" element={<CandidateDetailsPage />} />
               {/* Analytics route redirects to Dashboard where analytics is integrated */}
               <Route path="/analytics" element={<DashboardPage />} />
