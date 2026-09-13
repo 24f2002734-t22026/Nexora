@@ -122,8 +122,8 @@ export function analyzeResumeTextClient(
           alertType = 'white_font';
           severity = 'critical';
         } else if (/EXPERIENCE CLAIM|Acme Cloud|Google internship/i.test(line)) {
-          alertTitle = 'Fabricated Experience Claim';
-          alertType = 'timeline_overlap';
+          alertTitle = 'Unverified Formatting Injection';
+          alertType = 'off_margin_text';
           severity = 'high';
         }
 

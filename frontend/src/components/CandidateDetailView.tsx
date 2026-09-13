@@ -19,8 +19,14 @@ import {
   Clock,
   Layers,
   Check,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  XCircle,
+  Calendar,
+  Send,
+  X,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import type { AssessmentResult, Candidate, CandidateEvidence, SkillEvidence } from '../types';
 import {
@@ -29,6 +35,7 @@ import {
   getCandidateEvidence,
   submitHrDecision,
 } from '../services/api';
+import { store } from '../services/store';
 import { ResumeViewerModal } from './ResumeViewerModal';
 
 interface CandidateDetailViewProps {
@@ -41,20 +48,56 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
   const navigate = useNavigate();
   const [localCandidate, setLocalCandidate] = useState(candidate);
   const [skillFilter, setSkillFilter] = useState<'all' | 'matched' | 'missing'>('all');
+  const [showRequiredSkillsDropdown, setShowRequiredSkillsDropdown] = useState(false);
   const [showResumeViewer, setShowResumeViewer] = useState(false);
   const [assessment, setAssessment] = useState<AssessmentResult | null>(candidate.assessmentResult || null);
   const [evidence, setEvidence] = useState<CandidateEvidence | null>(candidate.evidence || null);
   const [downstreamLoading, setDownstreamLoading] = useState(false);
   const [downstreamError, setDownstreamError] = useState<string | null>(null);
   const [hrLoading, setHrLoading] = useState(false);
+
+  // Scheduling modal state
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState(() => {
+    const d = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    d.setMinutes(0, 0, 0);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  });
+  const [scheduleDuration, setScheduleDuration] = useState(45);
+  const [candidateEmailInput, setCandidateEmailInput] = useState(candidate.email || '');
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
+
   const c = localCandidate;
+
+  const handleShortlist = () => {
+    const updated = store.shortlistCandidate(c.id);
+    setLocalCandidate(updated);
+    toast.success(`${c.name} has been shortlisted.`);
+  };
+
+  const handleSendAssessmentInvite = () => {
+    setIsSendingInvite(true);
+    setTimeout(() => {
+      const updated = store.scheduleAssessmentInvite(
+        c.id,
+        scheduleDate,
+        scheduleDuration,
+        candidateEmailInput
+      );
+      setLocalCandidate(updated);
+      setIsSendingInvite(false);
+      setShowScheduleModal(false);
+      toast.success(`Assessment invitation scheduled for ${new Date(scheduleDate).toLocaleString()} and dispatched.`);
+    }, 400);
+  };
 
   const isPending = c.analysisPending;
 
   useEffect(() => {
-    setLocalCandidate(candidate);
-    setAssessment(candidate.assessmentResult || null);
-    setEvidence(candidate.evidence || null);
+    const fresh = store.getCandidate(candidate.id) || candidate;
+    setLocalCandidate(fresh);
+    setAssessment(fresh.assessmentResult || null);
+    setEvidence(fresh.evidence || null);
   }, [candidate]);
 
   const refreshDownstream = async () => {
@@ -119,8 +162,6 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
       case 'off_margin_text': return 'Off-Margin Injected Metadata';
       case 'hidden_behind_image': return 'Text Hidden Behind Image Layer';
       case 'prompt_injection': return 'Adversarial Prompt Injection Attempt';
-      case 'timeline_overlap':
-      case 'timeline_anomaly': return 'Timeline Chronological Conflict';
       default: return 'Formatting Anomaly Detected';
     }
   };
@@ -167,11 +208,13 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
 
   const skillEvidenceMap = getComputedSkillEvidence();
   const skillEntries = Object.entries(skillEvidenceMap);
-  const filteredSkills = skillEntries.filter(([_, ev]) => {
-    if (skillFilter === 'matched') return ev.level !== 'not_found';
-    if (skillFilter === 'missing') return ev.level === 'not_found';
-    return true;
-  });
+
+  const jobRequiredSkills = Array.from(
+    new Set([...(c.matchedSkills || []), ...(c.missingSkills || [])])
+  );
+  const candidateResumeSkills: string[] = (c.matchedSkills && c.matchedSkills.length > 0)
+    ? c.matchedSkills
+    : skillEntries.filter(([_, e]) => e.level !== 'not_found').map(([s]) => s);
 
   const alerts = c.verificationAlerts || [];
   const isSuspicious = alerts.length > 0 || c.verificationStatus === 'review_recommended';
@@ -220,13 +263,6 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
               Compare Candidate
             </button>
           )}
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => window.print()}
-          >
-            <FileText size={15} /> Export Dossier
-          </button>
         </div>
       </div>
 
@@ -288,6 +324,25 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
           </div>
         )}
 
+        {(c.submittedCode || assessment?.submissions?.[0]?.code) && (
+          <div style={{ marginTop: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-xs)', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: '#FAFAFB', borderBottom: '1px solid var(--border-color)', fontSize: '12px', fontWeight: 600 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Code2 size={14} />
+                <span>Candidate Submitted Code ({c.submittedLanguage || assessment?.submissions?.[0]?.language || 'Python'})</span>
+              </div>
+              {c.submittedAt && (
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  Submitted {new Date(c.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+            <pre style={{ margin: 0, padding: '14px', backgroundColor: '#09090b', color: '#F4F4F5', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: 1.55, overflowX: 'auto', maxHeight: '280px' }}>
+              <code>{c.submittedCode || assessment?.submissions?.[0]?.code}</code>
+            </pre>
+          </div>
+        )}
+
         {evidence && (
           <div className="projects-timeline" style={{ marginTop: '14px' }}>
             {[...evidence.assessmentEvidence, ...evidence.comparisonEvidence].slice(0, 6).map((item) => (
@@ -302,26 +357,77 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
           </div>
         )}
 
-        {(c.currentStage === 'HR_REVIEW' || c.currentStage === 'ASSESSMENT_EVALUATED') && (
-          <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '16px', alignItems: 'center' }}>
+          {(!c.currentStage || c.currentStage === 'SCREENING') && (
             <button
               type="button"
               className="btn btn-primary"
-              disabled={hrLoading}
-              onClick={() => void handleHrDecision('HR_SELECTED')}
+              onClick={handleShortlist}
             >
-              <CheckCircle2 size={14} /> Select for HR
+              <CheckCircle2 size={14} /> Shortlist Candidate
             </button>
+          )}
+
+          {c.currentStage === 'SHORTLISTED' && (
             <button
               type="button"
-              className="btn btn-secondary"
-              disabled={hrLoading}
-              onClick={() => void handleHrDecision('REJECTED')}
+              className="btn btn-primary"
+              onClick={() => setShowScheduleModal(true)}
             >
-              <AlertCircle size={14} /> Reject
+              <Calendar size={14} /> Schedule & Send Technical Assessment
             </button>
-          </div>
-        )}
+          )}
+
+          {c.currentStage === 'ASSESSMENT_SENT' && (
+            <>
+              <a
+                href={`/assessment/${c.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-secondary"
+                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <ExternalLink size={14} /> Open Assessment Portal
+              </a>
+              <span className="status-badge-inline status-strong">
+                <Clock size={12} /> Assessment Scheduled: {c.assessment?.scheduledAt ? new Date(c.assessment.scheduledAt).toLocaleString() : 'Pending'}
+              </span>
+            </>
+          )}
+
+          {(c.currentStage === 'HR_REVIEW' || c.currentStage === 'ASSESSMENT_EVALUATED' || c.currentStage === 'ASSESSMENT_SUBMITTED') && (
+            <>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={hrLoading}
+                onClick={() => void handleHrDecision('HR_SELECTED')}
+              >
+                <CheckCircle2 size={14} /> Select for HR
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={hrLoading}
+                onClick={() => void handleHrDecision('REJECTED')}
+              >
+                <AlertCircle size={14} /> Reject
+              </button>
+            </>
+          )}
+
+          {c.currentStage === 'HR_SELECTED' && (
+            <span className="status-badge-inline status-strong" style={{ backgroundColor: '#DCFCE7', color: '#15803D' }}>
+              <CheckCircle2 size={14} /> Candidate Selected for HR
+            </span>
+          )}
+
+          {c.currentStage === 'REJECTED' && (
+            <span className="status-badge-inline status-flagged" style={{ backgroundColor: '#FEE2E2', color: '#B91C1C' }}>
+              <XCircle size={14} /> Candidate Rejected
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Main Three-Column Layout */}
@@ -471,34 +577,6 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
                 <p className="text-xs text-slate-500 italic">Education details on file in attached resume.</p>
               )}
             </div>
-
-            {/* External Profile Evidence */}
-            {c.externalEvidence && (
-              <div className="external-evidence-card">
-                <div className="external-head">
-                  <Code2 size={14} />
-                  <span>External Profile Evidence</span>
-                </div>
-                {c.externalEvidence.githubRepos && (
-                  <div className="ext-repos">
-                    <small>Sample Public Repositories:</small>
-                    <ul>
-                      {c.externalEvidence.githubRepos.map((repo) => (
-                        <li key={repo}>
-                          <code>{repo}</code>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {c.externalEvidence.profileHealth && (
-                  <div className="ext-health">
-                    <Sparkles size={12} />
-                    <span>{c.externalEvidence.profileHealth}</span>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </aside>
 
@@ -506,77 +584,105 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
             COLUMN 2: SKILLS & EXPERIENCE EVIDENCE
             ========================================================================= */}
         <section className="col-skills-experience">
-          {/* Section: Technical Skills & Evidence */}
+          {/* Section: Technical Skills */}
           <div className="content-card">
-            <div className="card-heading-bar">
+            <div className="card-heading-bar" style={{ position: 'relative' }}>
               <div>
-                <h2>Technical Skills & Evidence</h2>
-                <p>Multi-source evidence extracted from resume text, projects, and work history.</p>
+                <h2>Technical Skills (Candidate Profile)</h2>
+                <p>Verified skills directly detected in candidate's resume and verified work history.</p>
               </div>
-              {skillEntries.length > 0 && (
-                <div className="filter-pill-group">
-                  <button
-                    type="button"
-                    className={`filter-pill ${skillFilter === 'all' ? 'active' : ''}`}
-                    onClick={() => setSkillFilter('all')}
-                  >
-                    All ({skillEntries.length})
-                  </button>
-                  <button
-                    type="button"
-                    className={`filter-pill ${skillFilter === 'matched' ? 'active' : ''}`}
-                    onClick={() => setSkillFilter('matched')}
-                  >
-                    Evidenced ({c.matchedSkills?.length || skillEntries.filter(([_, e]) => e.level !== 'not_found').length})
-                  </button>
-                  <button
-                    type="button"
-                    className={`filter-pill ${skillFilter === 'missing' ? 'active' : ''}`}
-                    onClick={() => setSkillFilter('missing')}
-                  >
-                    Gaps ({c.missingSkills?.length || skillEntries.filter(([_, e]) => e.level === 'not_found').length})
-                  </button>
-                </div>
-              )}
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setShowRequiredSkillsDropdown((prev) => !prev)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '12px',
+                    padding: '6px 12px',
+                    backgroundColor: showRequiredSkillsDropdown ? 'var(--bg-subtle-hover)' : 'var(--bg-surface)',
+                  }}
+                >
+                  <FileText size={13} />
+                  <span>Job Required Skills ({jobRequiredSkills.length})</span>
+                  <ChevronDown
+                    size={13}
+                    style={{
+                      transform: showRequiredSkillsDropdown ? 'rotate(180deg)' : 'none',
+                      transition: 'transform 0.2s ease',
+                    }}
+                  />
+                </button>
+
+                {showRequiredSkillsDropdown && (
+                  <div className="required-skills-dropdown-popover">
+                    <div className="dropdown-popover-header">
+                      <div>
+                        <strong>Job Requirements</strong>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                          {c.matchedSkills?.length || 0} of {jobRequiredSkills.length} skills matched
+                        </div>
+                      </div>
+                      <span className="dropdown-match-badge">
+                        {Math.round(((c.matchedSkills?.length || 0) / Math.max(1, jobRequiredSkills.length)) * 100)}% Match
+                      </span>
+                    </div>
+                    <div className="dropdown-skills-list">
+                      {jobRequiredSkills.map((skill) => {
+                        const isMatched = (c.matchedSkills || []).includes(skill);
+                        return (
+                          <div key={skill} className={`dropdown-skill-row ${isMatched ? 'matched' : 'missing'}`}>
+                            <div className="dropdown-skill-left">
+                              {isMatched ? (
+                                <CheckCircle2 size={13} style={{ color: 'var(--success)', flexShrink: 0 }} />
+                              ) : (
+                                <XCircle size={13} style={{ color: 'var(--text-light)', flexShrink: 0 }} />
+                              )}
+                              <span className="dropdown-skill-name">{skill}</span>
+                            </div>
+                            <span className={`dropdown-skill-pill ${isMatched ? 'evidenced' : 'gap'}`}>
+                              {isMatched ? 'Present' : 'Missing'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {skillEntries.length > 0 ? (
-              <div className="skill-evidence-grid">
-                {filteredSkills.map(([skillName, ev]) => (
-                  <div key={skillName} className={`skill-evidence-item ${ev.level}`}>
-                    <div className="skill-ev-header">
-                      <div className="flex items-center gap-2">
-                        <b className="skill-title">{skillName}</b>
-                        <span className={`priority-tag ${ev.priority}`}>{ev.priority}</span>
+            {candidateResumeSkills.length > 0 ? (
+              <div className="candidate-skills-compact-grid">
+                {candidateResumeSkills.map((skillName) => {
+                  const ev = skillEvidenceMap[skillName];
+                  return (
+                    <div key={skillName} className="candidate-skill-compact-badge">
+                      <div className="skill-badge-top">
+                        <span className="skill-badge-title">{skillName}</span>
+                        <span className="skill-badge-status">
+                          <CheckCircle2 size={11} /> Verified
+                        </span>
                       </div>
-                      {evidenceLevelBadge(ev.level)}
+                      <div className="skill-badge-bottom">
+                        {ev?.yearsOfExperience ? (
+                          <span className="skill-badge-tag">{ev.yearsOfExperience}y exp</span>
+                        ) : (
+                          <span className="skill-badge-tag">Evidenced</span>
+                        )}
+                        {ev?.inProjects && <span className="skill-badge-tag">Projects</span>}
+                        {ev?.inWorkHistory && <span className="skill-badge-tag">Experience</span>}
+                      </div>
                     </div>
-
-                    <ul className="evidence-points">
-                      {ev.details.map((detail, dIdx) => (
-                        <li key={dIdx}>{detail}</li>
-                      ))}
-                    </ul>
-
-                    {ev.level !== 'not_found' && (
-                      <div className="evidence-tags-row">
-                        {ev.inProjects && <span className="evidence-subtag">Used in Projects</span>}
-                        {ev.inWorkHistory && <span className="evidence-subtag">Work Experience</span>}
-                        {ev.yearsOfExperience ? (
-                          <span className="evidence-subtag">{ev.yearsOfExperience} yrs demonstrated</span>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
-              <div className="py-8 text-center bg-slate-950/40 border border-slate-800">
-                <Clock className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-                <p className="text-sm font-semibold text-slate-300">Skills Parsing Pending</p>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-                  The applicant's resume is safely uploaded. Trigger the AI intelligence scan when ready to parse comprehensive skill evidence.
-                </p>
+              <div className="py-6 text-center bg-subtle" style={{ borderRadius: 'var(--radius-xs)', padding: '16px' }}>
+                <Clock size={20} className="text-muted" style={{ margin: '0 auto 6px' }} />
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>No skills parsed on resume yet.</p>
               </div>
             )}
           </div>
@@ -610,6 +716,85 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
                         ))}
                       </div>
                     )}
+                    {(proj.link || proj.github || proj.demoUrl || c.links?.github) && (
+                      <div className="project-links-row" style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
+                        {(proj.link || proj.github) && (
+                          <a
+                            href={proj.link || proj.github}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="project-link-badge"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              fontSize: '11.5px',
+                              padding: '3px 8px',
+                              borderRadius: 'var(--radius-xs)',
+                              backgroundColor: 'var(--bg-subtle)',
+                              color: 'var(--text-primary)',
+                              border: '1px solid var(--border-color)',
+                              textDecoration: 'none',
+                              fontWeight: 500,
+                            }}
+                          >
+                            <Globe size={11} />
+                            <span>Repository</span>
+                            <ExternalLink size={10} style={{ opacity: 0.7 }} />
+                          </a>
+                        )}
+                        {proj.demoUrl && (
+                          <a
+                            href={proj.demoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="project-link-badge"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              fontSize: '11.5px',
+                              padding: '3px 8px',
+                              borderRadius: 'var(--radius-xs)',
+                              backgroundColor: 'var(--bg-subtle)',
+                              color: 'var(--text-primary)',
+                              border: '1px solid var(--border-color)',
+                              textDecoration: 'none',
+                              fontWeight: 500,
+                            }}
+                          >
+                            <Globe size={11} />
+                            <span>Live Demo</span>
+                            <ExternalLink size={10} style={{ opacity: 0.7 }} />
+                          </a>
+                        )}
+                        {!proj.link && !proj.github && !proj.demoUrl && c.links?.github && (
+                          <a
+                            href={`${c.links.github}/${proj.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="project-link-badge"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              fontSize: '11.5px',
+                              padding: '3px 8px',
+                              borderRadius: 'var(--radius-xs)',
+                              backgroundColor: 'var(--bg-subtle)',
+                              color: 'var(--text-primary)',
+                              border: '1px solid var(--border-color)',
+                              textDecoration: 'none',
+                              fontWeight: 500,
+                            }}
+                          >
+                            <Globe size={11} />
+                            <span>View Project Repo</span>
+                            <ExternalLink size={10} style={{ opacity: 0.7 }} />
+                          </a>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -632,19 +817,14 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
             {c.workHistory && c.workHistory.length > 0 ? (
               <div className="experience-list">
                 {c.workHistory.map((job, jIdx) => (
-                  <div key={jIdx} className={`experience-card ${job.isOverlap ? 'has-overlap-flag' : ''}`}>
+                  <div key={jIdx} className="experience-card">
                     <div className="exp-top-row">
                       <div>
                         <b className="exp-role">{job.role}</b>
-                        <div className="exp-company">{job.company}</div>
+                        <div className="exp-company">{job.company || (job as any).organization}</div>
                       </div>
                       <div className="exp-period-wrap">
                         <span className="exp-period">{job.period}</span>
-                        {job.isOverlap && (
-                          <span className="overlap-indicator-badge">
-                            <AlertTriangle size={11} /> Timeline Overlap
-                          </span>
-                        )}
                       </div>
                     </div>
                     {job.highlights && job.highlights.length > 0 && (
@@ -762,12 +942,6 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
                 </div>
               </div>
             )}
-
-            {/* Rationale Explanation */}
-            <div className="explanation-box">
-              <h4>Candidate Fit Assessment</h4>
-              <p>{c.explanation}</p>
-            </div>
           </div>
 
           {/* =========================================================================
@@ -826,12 +1000,6 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
                           <code>{detected}</code>
                         </div>
                       )}
-                      {alert.timelineDetails && (
-                        <div className="timeline-detail-box">
-                          <small>Detected Overlap Range:</small>
-                          <code>{alert.timelineDetails}</code>
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -878,6 +1046,125 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
           candidate={c}
           onClose={() => setShowResumeViewer(false)}
         />
+      )}
+
+      {/* Schedule Assessment Modal */}
+      {showScheduleModal && (
+        <div className="modal-backdrop">
+          <div className="modal-card" style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Calendar size={18} className="text-primary" />
+                <h3>Schedule & Send Technical Assessment</h3>
+              </div>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => setShowScheduleModal(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                Schedule the technical coding assessment appointment for <b>{c.name}</b>. The assessment portal link will be time-gated and unlock at the specified time.
+              </p>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-primary)' }}>
+                  Candidate Email:
+                </label>
+                <input
+                  type="email"
+                  value={candidateEmailInput}
+                  onChange={(e) => setCandidateEmailInput(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-xs)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '13px',
+                  }}
+                  placeholder="candidate@example.com"
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-primary)' }}>
+                    Assessment Date & Time:
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={scheduleDate}
+                    onChange={(e) => setScheduleDate(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-xs)',
+                      border: '1px solid var(--border-color)',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-primary)' }}>
+                    Duration:
+                  </label>
+                  <select
+                    value={scheduleDuration}
+                    onChange={(e) => setScheduleDuration(Number(e.target.value))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-xs)',
+                      border: '1px solid var(--border-color)',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <option value={30}>30 Minutes</option>
+                    <option value={45}>45 Minutes (Recommended)</option>
+                    <option value={60}>60 Minutes</option>
+                    <option value={90}>90 Minutes</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ padding: '12px', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border-color)', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                <p style={{ margin: 0 }}>
+                  ✉️ <b>Email Preview:</b> An invitation email containing the candidate's unique assessment link (<code>/assessment/{c.id}</code>) will be dispatched to <b>{candidateEmailInput}</b>.
+                </p>
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', padding: '12px 20px', borderTop: '1px solid var(--border-color)' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowScheduleModal(false)}
+                disabled={isSendingInvite}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSendAssessmentInvite}
+                disabled={isSendingInvite}
+              >
+                {isSendingInvite ? (
+                  <>Sending Invite...</>
+                ) : (
+                  <>
+                    <Send size={14} /> Schedule & Send Email Invite
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

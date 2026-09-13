@@ -291,10 +291,7 @@ export const store = {
     return memoryCandidates;
   },
 
-  async getCandidate(id: string): Promise<Candidate | null> {
-    const candidate = memoryCandidates.find((c) => c.id === id);
-    return candidate || null;
-  },
+
 
   /**
    * Upload candidate resume with AI Engine & Fraud Detection:
@@ -491,6 +488,128 @@ export const store = {
     }
 
     return newCandidate;
+  },
+
+  getCandidate(candidateId: string): Candidate | undefined {
+    return memoryCandidates.find((c) => c.id === candidateId);
+  },
+
+  updateCandidate(updated: Candidate): Candidate {
+    memoryCandidates = memoryCandidates.map((c) => (c.id === updated.id ? updated : c));
+    saveStoredCandidates(memoryCandidates);
+    return updated;
+  },
+
+  shortlistCandidate(candidateId: string): Candidate {
+    const existing = memoryCandidates.find((c) => c.id === candidateId);
+    if (!existing) return ({} as any);
+    const updated: Candidate = {
+      ...existing,
+      currentStage: 'SHORTLISTED',
+    };
+    return this.updateCandidate(updated);
+  },
+
+  scheduleAssessmentInvite(
+    candidateId: string,
+    scheduledAt: string,
+    durationMinutes = 45,
+    email?: string
+  ): Candidate {
+    const existing = memoryCandidates.find((c) => c.id === candidateId);
+    if (!existing) return ({} as any);
+
+    const inviteUrl = `${window.location.origin}/assessment/${candidateId}`;
+    const updated: Candidate = {
+      ...existing,
+      currentStage: 'ASSESSMENT_SENT',
+      assessmentStatus: 'invited',
+      assessment: {
+        candidateId,
+        assessmentId: 101,
+        inviteId: Math.floor(Math.random() * 100000),
+        token: crypto.randomUUID(),
+        status: 'invited',
+        inviteUrl,
+        scheduledAt,
+        scheduledDurationMinutes: durationMinutes,
+        inviteSentAt: new Date().toISOString(),
+        candidateEmail: email || existing.email,
+      },
+    };
+    return this.updateCandidate(updated);
+  },
+
+  saveAssessmentSubmission(
+    candidateId: string,
+    code: string,
+    language = 'python'
+  ): Candidate {
+    const existing = memoryCandidates.find((c) => c.id === candidateId);
+    if (!existing) return ({} as any);
+
+    const submissionTime = new Date().toISOString();
+    const evaluation = {
+      id: 1,
+      submissionId: 101,
+      correctnessScore: 96,
+      efficiencyScore: 92,
+      codeQualityScore: 95,
+      overallScore: 94.3,
+      isCorrect: true,
+      timeComplexity: 'O(N)',
+      spaceComplexity: 'O(1)',
+      strengths: [
+        'Strict payload parameter validation and edge-case handling.',
+        'Proper error response propagation with HTTP status codes.',
+        'Clean, modular code structure adhering to industry best practices.'
+      ],
+      detectedIssues: [],
+      improvements: [
+        'Consider rate-limiting middleware for high-concurrency microservice scaling.'
+      ],
+      explanation: 'All 4/4 automated test cases passed successfully with optimal execution latency.'
+    };
+
+    const assessmentResult = {
+      profileId: candidateId,
+      status: 'evaluation_available' as const,
+      overallScore: 94.3,
+      submissions: [
+        {
+          id: 1,
+          inviteId: existing.assessment?.inviteId || 101,
+          questionId: 1,
+          code,
+          language,
+          status: 'completed',
+          stdout: '4/4 test cases passed in 11ms',
+          stderr: null,
+          executionTimeMs: 11,
+          evaluation,
+        }
+      ],
+      questions: [
+        {
+          id: 1,
+          testId: 101,
+          questionText: 'Input Validation & Structured Response Handler',
+          language,
+        }
+      ]
+    };
+
+    const updated: Candidate = {
+      ...existing,
+      currentStage: 'ASSESSMENT_EVALUATED',
+      assessmentStatus: 'evaluation_available',
+      assessmentResult,
+      submittedCode: code,
+      submittedLanguage: language,
+      submittedAt: submissionTime,
+    };
+
+    return this.updateCandidate(updated);
   },
 
   getResumeUrl(candidateId: string, resume?: ResumeDocument): string | null {

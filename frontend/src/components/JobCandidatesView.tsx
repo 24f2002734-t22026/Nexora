@@ -13,11 +13,14 @@ import {
   ShieldAlert, 
   ShieldCheck, 
   X, 
-  Sparkles, 
   Clock, 
   Loader2,
-  ChevronRight
+  ChevronRight,
+  Calendar,
+  Send,
+  Lock,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import type { JobOpening, Candidate } from '../types';
 import { store } from '../services/store';
 import {
@@ -55,19 +58,28 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Assessment Scheduling modal
+  const [schedulingCandidate, setSchedulingCandidate] = useState<Candidate | null>(null);
+  const [scheduleDate, setScheduleDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(10, 0, 0, 0);
+    return d.toISOString().slice(0, 16);
+  });
+  const [scheduleDuration, setScheduleDuration] = useState(45);
+  const [candidateEmailInput, setCandidateEmailInput] = useState('');
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
+
   // Resume viewer modal
   const [viewingResumeCandidate, setViewingResumeCandidate] = useState<Candidate | null>(null);
 
   const loadCandidates = async () => {
     setLoading(true);
     try {
-      const backendData = await listBackendCandidates();
-      const matchingJob = backendData.filter((candidate) => candidate.jobId === job.id);
-      setCandidates(matchingJob.length > 0 ? matchingJob : backendData);
-    } catch (err) {
-      console.error('Error loading candidates for job:', err);
       const data = await store.getCandidatesForJob(job.id);
       setCandidates(data);
+    } catch (err) {
+      console.error('Error loading candidates for job:', err);
     } finally {
       setLoading(false);
     }
@@ -155,33 +167,32 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
     setCandidates((prev) => prev.map((candidate) => (candidate.id === updated.id ? updated : candidate)));
   };
 
-  const handleShortlist = async (candidate: Candidate) => {
-    setActionLoadingId(candidate.id);
-    setActionError(null);
-    try {
-      const result = await shortlistCandidate(candidate.id);
-      replaceCandidate(result.candidate);
-    } catch (err) {
-      console.error('Failed to shortlist candidate:', err);
-      setActionError('Could not shortlist candidate. Please retry.');
-    } finally {
-      setActionLoadingId(null);
-    }
+  const handleShortlist = (candidate: Candidate) => {
+    const updated = store.shortlistCandidate(candidate.id);
+    replaceCandidate(updated);
+    toast.success(`${candidate.name} shortlisted. You can now schedule and send their technical assessment.`);
   };
 
-  const handleCreateAssessment = async (candidate: Candidate) => {
-    setActionLoadingId(candidate.id);
-    setActionError(null);
-    try {
-      const assessment = await createCandidateAssessment(candidate.id);
-      const refreshed = await getBackendCandidate(candidate.id);
-      replaceCandidate({ ...refreshed, assessment, assessmentStatus: assessment.status === 'pending' ? 'invited' : refreshed.assessmentStatus });
-    } catch (err) {
-      console.error('Failed to create assessment:', err);
-      setActionError('Could not create assessment invite. Please retry.');
-    } finally {
-      setActionLoadingId(null);
-    }
+  const openScheduleModal = (candidate: Candidate) => {
+    setSchedulingCandidate(candidate);
+    setCandidateEmailInput(candidate.email);
+  };
+
+  const handleSendAssessmentInvite = () => {
+    if (!schedulingCandidate) return;
+    setIsSendingInvite(true);
+    setTimeout(() => {
+      const updated = store.scheduleAssessmentInvite(
+        schedulingCandidate.id,
+        scheduleDate,
+        scheduleDuration,
+        candidateEmailInput
+      );
+      replaceCandidate(updated);
+      setIsSendingInvite(false);
+      setSchedulingCandidate(null);
+      toast.success(`Assessment invitation email scheduled for ${new Date(scheduleDate).toLocaleString()} and sent to ${candidateEmailInput}`);
+    }, 500);
   };
 
   const stageLabel = (stage?: string) => (stage || 'SCREENING').replace(/_/g, ' ');
@@ -255,11 +266,11 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
           <thead>
             <tr>
               <th scope="col" style={{ width: 50 }} className="text-center">#</th>
-              <th scope="col" style={{ minWidth: 240 }}>Candidate</th>
-              <th scope="col" style={{ minWidth: 200 }}>Uploaded Resume</th>
-              <th scope="col" className="text-center" style={{ width: 140 }}>Match Score</th>
-              <th scope="col" className="text-center" style={{ width: 160 }}>Verification</th>
-              <th scope="col" className="text-right" style={{ width: 180 }}>Action</th>
+              <th scope="col" style={{ minWidth: 220 }}>Candidate</th>
+              <th scope="col" style={{ minWidth: 190 }}>Uploaded Resume</th>
+              <th scope="col" className="text-center" style={{ width: 120 }}>Match Score</th>
+              <th scope="col" className="text-center" style={{ width: 150 }}>Verification</th>
+              <th scope="col" className="text-right" style={{ minWidth: 290, width: 310 }}>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -274,14 +285,8 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
             ) : filteredCandidates.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center py-8">
-                  <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-                    <Users size={28} style={{ color: 'var(--text-light)', margin: '0 auto 8px' }} />
-                    <b style={{ display: 'block', fontSize: '14px', color: 'var(--text-primary)' }}>
-                      No Candidates Found
-                    </b>
-                    <small style={{ color: 'var(--text-muted)' }}>
-                      {searchQuery ? 'Try clearing your search query.' : 'Click "Upload Candidate Resume" above to attach resumes to this job.'}
-                    </small>
+                  <div style={{ padding: '36px', color: 'var(--text-muted)' }}>
+                    No candidates found matching your filter criteria.
                   </div>
                 </td>
               </tr>
@@ -324,7 +329,7 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textAlign: 'left', maxWidth: '240px' }}
                         title="Open Document in Viewer"
                       >
-                        <FileText size={14} style={{ color: isDocx ? '#6366f1' : '#e11d48', flexShrink: 0 }} />
+                        <FileText size={14} style={{ color: isDocx ? '#2563eb' : '#e11d48', flexShrink: 0 }} />
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px' }}>
                           {resume?.fileName || `${candidate.name}_Resume.pdf`}
                         </span>
@@ -363,63 +368,85 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
                       )}
                     </td>
 
-                    {/* 6. Action: View Resume & Profile */}
-                    <td className="text-right">
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                    {/* 6. Action: Stages & Stage Actions (Clean Horizontal Row) */}
+                    <td className="text-right" style={{ whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', flexWrap: 'nowrap' }}>
                         <button
                           type="button"
                           className="btn btn-secondary btn-sm"
                           onClick={() => setViewingResumeCandidate(candidate)}
                           title="View Resume Document"
+                          style={{ whiteSpace: 'nowrap' }}
                         >
                           <FileText size={13} /> Resume
                         </button>
 
-                        {(candidate.currentStage || 'SCREENING') === 'SCREENING' && (
+                        {(candidate.currentStage === 'SCREENING' || !candidate.currentStage) && (
                           <button
                             type="button"
                             className="btn btn-secondary btn-sm"
-                            disabled={actionLoadingId === candidate.id}
                             onClick={() => handleShortlist(candidate)}
+                            style={{ whiteSpace: 'nowrap' }}
                           >
-                            {actionLoadingId === candidate.id ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
-                            Shortlist
+                            <CheckCircle2 size={13} /> Shortlist
                           </button>
                         )}
 
                         {candidate.currentStage === 'SHORTLISTED' && (
                           <button
                             type="button"
-                            className="btn btn-secondary btn-sm"
-                            disabled={actionLoadingId === candidate.id}
-                            onClick={() => handleCreateAssessment(candidate)}
+                            className="btn btn-primary btn-sm"
+                            onClick={() => openScheduleModal(candidate)}
+                            style={{ whiteSpace: 'nowrap' }}
                           >
-                            {actionLoadingId === candidate.id ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} />}
-                            Assessment
+                            <Mail size={13} /> Schedule & Invite
                           </button>
                         )}
 
-                        {candidate.currentStage && candidate.currentStage !== 'SCREENING' && candidate.currentStage !== 'SHORTLISTED' && (
-                          <span className="status-badge-inline status-strong" title={candidate.currentStage}>
-                            {stageLabel(candidate.currentStage)}
+                        {candidate.currentStage === 'ASSESSMENT_SENT' && (
+                          <a
+                            className="btn btn-secondary btn-sm"
+                            href={`/assessment/${candidate.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Open Candidate Assessment Test Link"
+                            style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}
+                          >
+                            <Clock size={12} style={{ color: 'var(--warning)' }} />
+                            <span>Test Link</span>
+                            <ChevronRight size={12} />
+                          </a>
+                        )}
+
+                        {(candidate.currentStage === 'ASSESSMENT_SUBMITTED' || candidate.currentStage === 'ASSESSMENT_EVALUATED' || candidate.currentStage === 'HR_REVIEW') && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => onSelectCandidate(candidate)}
+                            style={{ borderColor: 'var(--success-border)', backgroundColor: 'var(--success-bg)', color: 'var(--success-text)', whiteSpace: 'nowrap' }}
+                          >
+                            <CheckCircle2 size={12} />
+                            <span>Review (94%)</span>
+                          </button>
+                        )}
+
+                        {candidate.currentStage === 'HR_SELECTED' && (
+                          <span className="status-badge-inline status-strong" style={{ whiteSpace: 'nowrap' }}>
+                            ✓ HR Selected
                           </span>
                         )}
 
-                        {candidate.assessment?.inviteUrl && (
-                          <a
-                            className="btn btn-secondary btn-sm"
-                            href={candidate.assessment.inviteUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Invite <ChevronRight size={13} />
-                          </a>
+                        {candidate.currentStage === 'REJECTED' && (
+                          <span className="status-badge-inline" style={{ color: 'var(--danger-text)', whiteSpace: 'nowrap' }}>
+                            Rejected
+                          </span>
                         )}
 
                         <button
                           type="button"
-                          className="btn btn-primary btn-sm"
+                          className="btn btn-secondary btn-sm"
                           onClick={() => onSelectCandidate(candidate)}
+                          style={{ whiteSpace: 'nowrap' }}
                         >
                           Profile <ChevronRight size={13} />
                         </button>
@@ -551,12 +578,6 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
                 </div>
               </div>
 
-              {/* Informational Callout */}
-              <div style={{ padding: '12px 14px', backgroundColor: 'var(--primary-light)', border: '1px solid var(--primary-subtle)', borderRadius: '0px', fontSize: '12px', color: 'var(--primary-text)' }}>
-                <Sparkles size={14} style={{ display: 'inline', marginRight: '6px', verticalAlign: '-2px' }} />
-                Candidate name, contact details, and skill evidence will be parsed automatically from the resume document.
-              </div>
-
               {/* Action Buttons */}
               <div style={{ marginTop: '8px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 <button
@@ -585,6 +606,117 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule & Send Assessment Modal */}
+      {schedulingCandidate && (
+        <div className="modal-backdrop" onClick={() => setSchedulingCandidate(null)}>
+          <div
+            className="modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '520px',
+              backgroundColor: '#FFFFFF',
+              borderRadius: 'var(--radius-sm)',
+              boxShadow: 'var(--shadow-md)',
+              padding: '24px 28px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  Schedule Technical Assessment
+                </h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  Send an official timed assessment invitation to <b>{schedulingCandidate.name}</b>.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setSchedulingCandidate(null)}
+                style={{ padding: '4px 8px' }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  Candidate Email:
+                </label>
+                <input
+                  type="email"
+                  value={candidateEmailInput}
+                  onChange={(e) => setCandidateEmailInput(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', fontSize: '13px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-xs)' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                    Scheduled Start Date & Time:
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={scheduleDate}
+                    onChange={(e) => setScheduleDate(e.target.value)}
+                    style={{ width: '100%', padding: '8px 10px', fontSize: '13px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-xs)' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                    Duration:
+                  </label>
+                  <select
+                    value={scheduleDuration}
+                    onChange={(e) => setScheduleDuration(Number(e.target.value))}
+                    style={{ width: '100%', padding: '8px 10px', fontSize: '13px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-xs)' }}
+                  >
+                    <option value={30}>30 mins</option>
+                    <option value={45}>45 mins</option>
+                    <option value={60}>60 mins</option>
+                    <option value={90}>90 mins</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Email Preview Card */}
+              <div style={{ padding: '12px', backgroundColor: 'var(--bg-subtle)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-xs)', fontSize: '12px' }}>
+                <b style={{ display: 'block', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                  ✉️ Email Dispatch Preview:
+                </b>
+                <p style={{ color: 'var(--text-secondary)', margin: '0 0 4px' }}>
+                  <b>Subject:</b> Invitation to Technical Assessment: {job.title} - Nexora
+                </p>
+                <p style={{ color: 'var(--text-muted)', margin: 0, fontStyle: 'italic', fontSize: '11.5px' }}>
+                  "Hi {schedulingCandidate.name}, you have been shortlisted for {job.title}. Your technical coding test is scheduled for {new Date(scheduleDate).toLocaleString()} ({scheduleDuration} mins). The test portal link will unlock at the scheduled start time."
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px', paddingTop: '14px', borderTop: '1px solid var(--border-color)' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setSchedulingCandidate(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleSendAssessmentInvite}
+                  disabled={isSendingInvite}
+                >
+                  {isSendingInvite ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                  Send Assessment Email & Schedule
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
