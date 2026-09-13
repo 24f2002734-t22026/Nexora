@@ -31,3 +31,4 @@ test_artifacts/
 
 
 node_modules
+*.db

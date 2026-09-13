@@ -99,14 +99,20 @@ export interface CandidateProject {
   title: string;
   description: string;
   technologies: string[];
+  relevanceToJd?: 'High' | 'Moderate' | 'Low';
   period?: string;
+  contribution?: string;
 }
 
 export interface CandidateExperience {
-  company: string;
+  company?: string;
+  organization?: string;
   role: string;
   period: string;
+  isInternship?: boolean;
   isOverlap?: boolean;
+  relevanceToJd?: 'High' | 'Moderate' | 'Low';
+  technologies: string[];
   highlights: string[];
 }
 
@@ -114,7 +120,8 @@ export interface CandidateEducation {
   degree: string;
   institution: string;
   year: string;
-  cgpa?: string;
+  cgpa?: number;
+  cgpaScale?: number;
   details?: string;
 }
 
@@ -267,6 +274,11 @@ export interface Candidate {
   finalScore?: number;
   semanticScore?: number;
   keywordScore?: number;
+  semanticScoreWeight?: number;
+  keywordScoreWeight?: number;
+  experienceScoreWeight?: number;
+  projectScoreWeight?: number;
+  educationScoreWeight?: number;
   scoreBreakdown?: ScoreBreakdown;
   analysisPending?: boolean;
 
@@ -280,6 +292,16 @@ export interface Candidate {
   explanation: string;
   experience: string;
   experienceYears: number;
+
+  // Candidate dimension details
+  cgpa?: number;
+  cgpaScale?: number;
+  totalInternships?: number;
+  relevantInternships?: number;
+  relevantExperienceYears?: number;
+  totalProjects?: number;
+  relevantProjectsCount?: number;
+
   education: CandidateEducation[];
   projects: CandidateProject[];
   workHistory: CandidateExperience[];
@@ -297,6 +319,16 @@ export interface Candidate {
   // Resume File
   resume?: ResumeDocument;
   appliedAt?: string;
+  claimsVsEvidence?: { claim: string; evidenceFound: string; strength: 'Strong' | 'Moderate' | 'Limited' | 'Not Found' }[];
+  evidenceIntegrity?: {
+    coveragePercent: number;
+    skillEvidenceLevel: 'Strong' | 'Moderate' | 'Limited';
+    projectEvidenceLevel: 'Strong' | 'Moderate' | 'Limited';
+    experienceEvidenceLevel: 'Strong' | 'Moderate' | 'Limited';
+    claimSpecificity: 'High' | 'Moderate' | 'Limited';
+    timelineConsistency: 'Verified' | 'Review Recommended';
+    aiWritingSignal: 'Low' | 'Moderate' | 'Insufficient Evidence';
+  };
 }
 
 export interface JobOpening {
@@ -328,6 +360,16 @@ export interface Analysis {
   createdAt: string;
   requiredSkills: JobSkill[];
   candidates: Candidate[];
+}
+
+export interface HiringWeights {
+  frontend: number; // 0-100
+  backend: number; // 0-100
+  cloud: number; // 0-100
+  experience: number; // 0-100
+  projects: number; // 0-100
+  requiredSkills: number; // 0-100
+  education: number; // 0-100
 }
 
 export interface ChatMessage {
