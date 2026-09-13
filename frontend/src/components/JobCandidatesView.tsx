@@ -76,13 +76,10 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
   const loadCandidates = async () => {
     setLoading(true);
     try {
-      const backendData = await listBackendCandidates();
-      const matchingJob = backendData.filter((candidate) => candidate.jobId === job.id);
-      setCandidates(matchingJob.length > 0 ? matchingJob : backendData);
-    } catch (err) {
-      console.error('Error loading candidates for job:', err);
       const data = await store.getCandidatesForJob(job.id);
       setCandidates(data);
+    } catch (err) {
+      console.error('Error loading candidates for job:', err);
     } finally {
       setLoading(false);
     }

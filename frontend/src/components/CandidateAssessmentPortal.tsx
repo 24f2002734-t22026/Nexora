@@ -53,8 +53,19 @@ export function CandidateAssessmentPortal() {
     verificationStatus: 'verified',
   };
 
-  const [language, setLanguage] = useState<'python' | 'typescript' | 'javascript' | 'sql'>('python');
-  const [code, setCode] = useState<string>(`# Python 3 Solution
+  const isAlreadySubmitted = Boolean(
+    candidate.submittedCode ||
+    candidate.currentStage === 'ASSESSMENT_SUBMITTED' ||
+    candidate.currentStage === 'ASSESSMENT_EVALUATED' ||
+    candidate.currentStage === 'HR_REVIEW' ||
+    candidate.currentStage === 'HR_SELECTED'
+  );
+
+  const [language, setLanguage] = useState<'python' | 'typescript' | 'javascript' | 'sql'>(
+    (candidate.submittedLanguage as any) || 'python'
+  );
+  const [code, setCode] = useState<string>(
+    candidate.submittedCode || `# Python 3 Solution
 from typing import Dict, Any
 
 def handle_candidate_submission(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -79,12 +90,13 @@ def handle_candidate_submission(payload: Dict[str, Any]) -> Dict[str, Any]:
             "status": "EVALUATED"
         }
     }
-`);
+`
+  );
 
   const [testOutput, setTestOutput] = useState<string | null>(null);
   const [isRunningTests, setIsRunningTests] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submittedSuccess, setSubmittedSuccess] = useState(false);
+  const [submittedSuccess, setSubmittedSuccess] = useState(isAlreadySubmitted);
   const [unlockedForPreview, setUnlockedForPreview] = useState(false);
 
   // Time-gating check: If scheduled in future and not yet unlocked by preview
@@ -93,7 +105,8 @@ def handle_candidate_submission(payload: Dict[str, Any]) -> Dict[str, Any]:
   const isLocked = isFutureScheduled && !unlockedForPreview;
 
   const handleReturnToWorkspace = () => {
-    navigate('/analysis');
+    const targetJobId = candidate.jobId || 'job_senior_fullstack';
+    navigate(`/analysis/${targetJobId}/candidates`);
   };
 
   const handleRunTests = () => {

@@ -22,7 +22,11 @@ import {
   AlertCircle,
   ChevronDown,
   XCircle,
+  Calendar,
+  Send,
+  X,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import type { AssessmentResult, Candidate, CandidateEvidence, SkillEvidence } from '../types';
 import {
@@ -51,7 +55,41 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
   const [downstreamLoading, setDownstreamLoading] = useState(false);
   const [downstreamError, setDownstreamError] = useState<string | null>(null);
   const [hrLoading, setHrLoading] = useState(false);
+
+  // Scheduling modal state
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState(() => {
+    const d = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    d.setMinutes(0, 0, 0);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  });
+  const [scheduleDuration, setScheduleDuration] = useState(45);
+  const [candidateEmailInput, setCandidateEmailInput] = useState(candidate.email || '');
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
+
   const c = localCandidate;
+
+  const handleShortlist = () => {
+    const updated = store.shortlistCandidate(c.id);
+    setLocalCandidate(updated);
+    toast.success(`${c.name} has been shortlisted.`);
+  };
+
+  const handleSendAssessmentInvite = () => {
+    setIsSendingInvite(true);
+    setTimeout(() => {
+      const updated = store.scheduleAssessmentInvite(
+        c.id,
+        scheduleDate,
+        scheduleDuration,
+        candidateEmailInput
+      );
+      setLocalCandidate(updated);
+      setIsSendingInvite(false);
+      setShowScheduleModal(false);
+      toast.success(`Assessment invitation scheduled for ${new Date(scheduleDate).toLocaleString()} and dispatched.`);
+    }, 400);
+  };
 
   const isPending = c.analysisPending;
 
@@ -319,26 +357,77 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
           </div>
         )}
 
-        {(c.currentStage === 'HR_REVIEW' || c.currentStage === 'ASSESSMENT_EVALUATED') && (
-          <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '16px', alignItems: 'center' }}>
+          {(!c.currentStage || c.currentStage === 'SCREENING') && (
             <button
               type="button"
               className="btn btn-primary"
-              disabled={hrLoading}
-              onClick={() => void handleHrDecision('HR_SELECTED')}
+              onClick={handleShortlist}
             >
-              <CheckCircle2 size={14} /> Select for HR
+              <CheckCircle2 size={14} /> Shortlist Candidate
             </button>
+          )}
+
+          {c.currentStage === 'SHORTLISTED' && (
             <button
               type="button"
-              className="btn btn-secondary"
-              disabled={hrLoading}
-              onClick={() => void handleHrDecision('REJECTED')}
+              className="btn btn-primary"
+              onClick={() => setShowScheduleModal(true)}
             >
-              <AlertCircle size={14} /> Reject
+              <Calendar size={14} /> Schedule & Send Technical Assessment
             </button>
-          </div>
-        )}
+          )}
+
+          {c.currentStage === 'ASSESSMENT_SENT' && (
+            <>
+              <a
+                href={`/assessment/${c.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-secondary"
+                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <ExternalLink size={14} /> Open Assessment Portal
+              </a>
+              <span className="status-badge-inline status-strong">
+                <Clock size={12} /> Assessment Scheduled: {c.assessment?.scheduledAt ? new Date(c.assessment.scheduledAt).toLocaleString() : 'Pending'}
+              </span>
+            </>
+          )}
+
+          {(c.currentStage === 'HR_REVIEW' || c.currentStage === 'ASSESSMENT_EVALUATED' || c.currentStage === 'ASSESSMENT_SUBMITTED') && (
+            <>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={hrLoading}
+                onClick={() => void handleHrDecision('HR_SELECTED')}
+              >
+                <CheckCircle2 size={14} /> Select for HR
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={hrLoading}
+                onClick={() => void handleHrDecision('REJECTED')}
+              >
+                <AlertCircle size={14} /> Reject
+              </button>
+            </>
+          )}
+
+          {c.currentStage === 'HR_SELECTED' && (
+            <span className="status-badge-inline status-strong" style={{ backgroundColor: '#DCFCE7', color: '#15803D' }}>
+              <CheckCircle2 size={14} /> Candidate Selected for HR
+            </span>
+          )}
+
+          {c.currentStage === 'REJECTED' && (
+            <span className="status-badge-inline status-flagged" style={{ backgroundColor: '#FEE2E2', color: '#B91C1C' }}>
+              <XCircle size={14} /> Candidate Rejected
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Main Three-Column Layout */}
@@ -957,6 +1046,125 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
           candidate={c}
           onClose={() => setShowResumeViewer(false)}
         />
+      )}
+
+      {/* Schedule Assessment Modal */}
+      {showScheduleModal && (
+        <div className="modal-backdrop">
+          <div className="modal-card" style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Calendar size={18} className="text-primary" />
+                <h3>Schedule & Send Technical Assessment</h3>
+              </div>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => setShowScheduleModal(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                Schedule the technical coding assessment appointment for <b>{c.name}</b>. The assessment portal link will be time-gated and unlock at the specified time.
+              </p>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-primary)' }}>
+                  Candidate Email:
+                </label>
+                <input
+                  type="email"
+                  value={candidateEmailInput}
+                  onChange={(e) => setCandidateEmailInput(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-xs)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '13px',
+                  }}
+                  placeholder="candidate@example.com"
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-primary)' }}>
+                    Assessment Date & Time:
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={scheduleDate}
+                    onChange={(e) => setScheduleDate(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-xs)',
+                      border: '1px solid var(--border-color)',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px', color: 'var(--text-primary)' }}>
+                    Duration:
+                  </label>
+                  <select
+                    value={scheduleDuration}
+                    onChange={(e) => setScheduleDuration(Number(e.target.value))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-xs)',
+                      border: '1px solid var(--border-color)',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <option value={30}>30 Minutes</option>
+                    <option value={45}>45 Minutes (Recommended)</option>
+                    <option value={60}>60 Minutes</option>
+                    <option value={90}>90 Minutes</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ padding: '12px', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border-color)', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                <p style={{ margin: 0 }}>
+                  ✉️ <b>Email Preview:</b> An invitation email containing the candidate's unique assessment link (<code>/assessment/{c.id}</code>) will be dispatched to <b>{candidateEmailInput}</b>.
+                </p>
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', padding: '12px 20px', borderTop: '1px solid var(--border-color)' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowScheduleModal(false)}
+                disabled={isSendingInvite}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleSendAssessmentInvite}
+                disabled={isSendingInvite}
+              >
+                {isSendingInvite ? (
+                  <>Sending Invite...</>
+                ) : (
+                  <>
+                    <Send size={14} /> Schedule & Send Email Invite
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -300,37 +300,11 @@ async def chatbot_endpoint(payload: Dict[str, Any]):
         return {"response": "Hello! I am your AI Recruiter Assistant. Ask me about candidate rankings, skill verification, fraud audits, or interview questions."}
 
     p_lower = prompt.lower().strip()
-    # Normalize punctuation for greeting matching
-    p_clean = re.sub(r'[^\w\s]', '', p_lower).strip()
 
-    # 1. CONVERSATIONAL GREETINGS & INTRODUCTIONS
-    greeting_tokens = ["hi", "hello", "hey", "hey there", "good morning", "good afternoon", "good evening", "howdy", "yo", "greetings", "who are you", "what can you do", "help", "how are you"]
-    if p_clean in greeting_tokens or any(p_clean.startswith(g + " ") for g in ["hi", "hello", "hey", "good morning", "good afternoon"]):
-        total_c = len(candidates)
-        top_c = sorted(candidates, key=lambda x: x.get("finalScore", 0), reverse=True)[0] if candidates else None
-        top_name = top_c.get("name", "Top Candidate") if top_c else "None"
-        top_score = top_c.get("finalScore", 0) if top_c else 0
-        flagged_count = sum(1 for c in candidates if len(c.get("verificationAlerts", [])) > 0 or c.get("verificationStatus") == "review_recommended")
-
-        return {
-            "response": f"Hello! 👋 I'm your **Nexora AI Recruiter Intelligence Assistant**.\n\n"
-                        f"I have analyzed all **{total_c} active candidates** for the **{job_title}** role.\n\n"
-                        f"**Current Pool Snapshot**:\n"
-                        f"• **Top Match**: **{top_name}** ({top_score}% match score)\n"
-                        f"• **Integrity Alerts**: **{flagged_count} candidate(s)** with flagged anomalies\n\n"
-                        f"Here is what I can think through for you:\n"
-                        f"• 🎯 **Candidate Deep Dive**: _\"Tell me about {top_name}\"_ or _\"Why is {top_name} ranked #1?\"_\n"
-                        f"• 💡 **Interview Questions**: _\"Draft 3 interview questions for {top_name}\"_\n"
-                        f"• ⚖️ **Comparison**: _\"Compare {top_name} with another candidate\"_\n"
-                        f"• 🛡️ **Fraud & Verification**: _\"Show all fraud detection alerts\"_\n"
-                        f"• 🔍 **Skill Search**: _\"Who has verified React and Docker experience?\"_\n\n"
-                        f"What would you like to explore?"
-        }
-
-    # 2. LOCAL OFFLINE LLM REASONING (Qwen 2.5 on MPS/CUDA/CPU)
+    # 1. LOCAL OFFLINE LLM REASONING (Qwen 2.5 on MPS/CUDA/CPU)
     try:
         llm_reply = generate_local_response(prompt, candidates, job_title)
-        if llm_reply and len(llm_reply.strip()) > 10:
+        if llm_reply and len(llm_reply.strip()) > 0:
             return {"response": llm_reply}
     except Exception as err:
         logger.warning(f"Local LLM fallback to rule engine: {err}")

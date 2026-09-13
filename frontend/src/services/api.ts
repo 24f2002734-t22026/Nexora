@@ -652,27 +652,11 @@ export async function chatWithRecruiter(
   // 1. CONVERSATIONAL GREETINGS & INTRODUCTIONS
   const greetingTokens = ['hi', 'hello', 'hey', 'hey there', 'good morning', 'good afternoon', 'good evening', 'howdy', 'yo', 'greetings', 'who are you', 'what can you do', 'help', 'how are you'];
   if (greetingTokens.includes(pClean) || ['hi', 'hello', 'hey', 'good morning', 'good afternoon'].some((g) => pClean.startsWith(g + ' '))) {
-    const topC = [...candidateList].sort((a, b) => (b.finalScore || 0) - (a.finalScore || 0))[0];
-    const topName = topC ? topC.name : 'Top Candidate';
-    const topScore = topC ? topC.finalScore : 0;
-    const flaggedCount = candidateList.filter((c) => (c.verificationAlerts && c.verificationAlerts.length > 0) || c.verificationStatus === 'review_recommended').length;
-
     return {
       id: crypto.randomUUID(),
       role: 'assistant',
       timestamp: time,
-      content: `Hello! 👋 I'm your **Nexora AI Recruiter Intelligence Assistant**.\n\n` +
-        `I have analyzed all **${candidateList.length} active candidates** for the **Senior Full Stack Engineer** role.\n\n` +
-        `**Current Pool Snapshot**:\n` +
-        `• **Top Match**: **${topName}** (${topScore}% match score)\n` +
-        `• **Integrity Alerts**: **${flaggedCount} candidate(s)** with flagged anomalies\n\n` +
-        `Here is what I can think through for you:\n` +
-        `• 🎯 **Candidate Deep Dive**: _\"Tell me about ${topName}\"_ or _\"Why is ${topName} ranked #1?\"_\n` +
-        `• 💡 **Interview Questions**: _\"Draft 3 interview questions for ${topName}\"_\n` +
-        `• ⚖️ **Comparison**: _\"Compare ${topName} with another candidate\"_\n` +
-        `• 🛡️ **Fraud & Verification**: _\"Show all fraud detection alerts\"_\n` +
-        `• 🔍 **Skill Search**: _\"Who has verified React and Docker experience?\"_\n\n` +
-        `What would you like to explore?`
+      content: `Hello! 👋 How can I help you evaluate candidates, review skills, or prepare interview questions today?`
     };
   }
 
