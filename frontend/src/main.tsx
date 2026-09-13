@@ -1643,7 +1643,7 @@ function CandidateDetailsPage() {
       try {
         stored = await getBackendCandidate(id);
       } catch (err) {
-        stored = await store.getCandidate(id);
+        stored = store.getCandidate(id) || null;
       }
       if (isMounted) {
         if (stored) {

@@ -31,6 +31,7 @@ import {
   getCandidateEvidence,
   submitHrDecision,
 } from '../services/api';
+import { store } from '../services/store';
 import { ResumeViewerModal } from './ResumeViewerModal';
 
 interface CandidateDetailViewProps {
@@ -55,9 +56,10 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
   const isPending = c.analysisPending;
 
   useEffect(() => {
-    setLocalCandidate(candidate);
-    setAssessment(candidate.assessmentResult || null);
-    setEvidence(candidate.evidence || null);
+    const fresh = store.getCandidate(candidate.id) || candidate;
+    setLocalCandidate(fresh);
+    setAssessment(fresh.assessmentResult || null);
+    setEvidence(fresh.evidence || null);
   }, [candidate]);
 
   const refreshDownstream = async () => {
@@ -281,6 +283,25 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
             {latestEvaluation.strengths.length > 0 && <p><b>Strengths:</b> {latestEvaluation.strengths.join(', ')}</p>}
             {latestEvaluation.detectedIssues.length > 0 && <p><b>Issues:</b> {latestEvaluation.detectedIssues.join(', ')}</p>}
             {latestEvaluation.improvements.length > 0 && <p><b>Improvements:</b> {latestEvaluation.improvements.join(', ')}</p>}
+          </div>
+        )}
+
+        {(c.submittedCode || assessment?.submissions?.[0]?.code) && (
+          <div style={{ marginTop: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-xs)', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: '#FAFAFB', borderBottom: '1px solid var(--border-color)', fontSize: '12px', fontWeight: 600 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Code2 size={14} />
+                <span>Candidate Submitted Code ({c.submittedLanguage || assessment?.submissions?.[0]?.language || 'Python'})</span>
+              </div>
+              {c.submittedAt && (
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  Submitted {new Date(c.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+            <pre style={{ margin: 0, padding: '14px', backgroundColor: '#09090b', color: '#F4F4F5', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: 1.55, overflowX: 'auto', maxHeight: '280px' }}>
+              <code>{c.submittedCode || assessment?.submissions?.[0]?.code}</code>
+            </pre>
           </div>
         )}
 

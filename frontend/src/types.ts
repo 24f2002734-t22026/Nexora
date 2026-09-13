@@ -176,6 +176,10 @@ export interface AssessmentInvite {
   token: string;
   status: string;
   inviteUrl: string | null;
+  scheduledAt?: string;
+  scheduledDurationMinutes?: number;
+  inviteSentAt?: string;
+  candidateEmail?: string;
 }
 
 export interface AssessmentEvaluation {
@@ -318,6 +322,11 @@ export interface Candidate {
   assessmentResult?: AssessmentResult | null;
   evidence?: CandidateEvidence | null;
   hrDecision?: HRDecision | null;
+  
+  // Assessment Code Submission
+  submittedCode?: string;
+  submittedLanguage?: string;
+  submittedAt?: string;
   
   // Resume File
   resume?: ResumeDocument;
