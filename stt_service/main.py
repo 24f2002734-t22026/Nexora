@@ -17,6 +17,7 @@ os.environ["KERAS_BACKEND"] = "torch"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 from transcriber import MoonshineTranscriber
+from llm_engine import generate_local_response, load_local_llm
 
 load_dotenv()
 
@@ -26,10 +27,17 @@ logger = logging.getLogger("moonshine-stt-server")
 
 # FastAPI App
 app = FastAPI(
-    title="Moonshine Base STT & WebSocket Service",
-    description="Real-time Speech-to-Text WebSocket server powered by Moonshine Base model for Resume Screening and AI Interviewer Assistant.",
+    title="Moonshine Base STT & Local LLM Recruiter Assistant",
+    description="Real-time Speech-to-Text WebSocket server and local offline LLM reasoning engine for Candidate Intelligence.",
     version="1.0.0"
 )
+
+# Startup: Pre-warm local LLM in background thread
+@app.on_event("startup")
+async def startup_event():
+    import threading
+    threading.Thread(target=load_local_llm, daemon=True).start()
+    logger.info("Local LLM background pre-warming initialized.")
 
 # CORS
 app.add_middleware(
@@ -319,7 +327,15 @@ async def chatbot_endpoint(payload: Dict[str, Any]):
                         f"What would you like to explore?"
         }
 
-    # 2. SPECIFIC CANDIDATE MATCHING
+    # 2. LOCAL OFFLINE LLM REASONING (Qwen 2.5 on MPS/CUDA/CPU)
+    try:
+        llm_reply = generate_local_response(prompt, candidates, job_title)
+        if llm_reply and len(llm_reply.strip()) > 10:
+            return {"response": llm_reply}
+    except Exception as err:
+        logger.warning(f"Local LLM fallback to rule engine: {err}")
+
+    # 3. SPECIFIC CANDIDATE MATCHING (HEURISTIC FALLBACK)
     matched_candidate = None
     for cand in candidates:
         c_name = cand.get("name", "").strip()
