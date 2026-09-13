@@ -1,12 +1,327 @@
 import axios from 'axios';
 import { demoAnalysis, candidates as defaultCandidates } from '../data';
-import type { Analysis, Candidate, ChatMessage, HiringWeights } from '../types';
+import { getAuth } from 'firebase/auth';
+import { firebaseEnabled } from '../auth/firebase';
+import type {
+  Analysis,
+  AssessmentEvaluation,
+  AssessmentInvite,
+  AssessmentResult,
+  Candidate,
+  CandidateEvidence,
+  CandidateStage,
+  ChatMessage,
+  EvidenceItem,
+  HiringWeights,
+  HRDecision,
+} from '../types';
 
 export const client = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
 });
 
+client.interceptors.request.use(async (config) => {
+  if (firebaseEnabled) {
+    const token = await getAuth().currentUser?.getIdToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
 const wait = (ms = 350) => new Promise((resolve) => setTimeout(resolve, ms));
+
+type BackendCandidate = {
+  candidate_id: string;
+  name: string;
+  email: string;
+  resume_ref: string | null;
+  current_stage: CandidateStage;
+  analysis_id: string;
+};
+
+type BackendRanking = {
+  candidate_id: string;
+  candidate_name: string;
+  rank: number;
+  final_score: number;
+  semantic_score: number;
+  keyword_score: number;
+  matched_skills: string[];
+  missing_skills: string[];
+};
+
+type BackendAssessmentInvite = {
+  candidate_id: string;
+  assessment_id: number;
+  invite_id: number;
+  token: string;
+  status: string;
+  invite_url: string | null;
+};
+
+type BackendChatResponse = {
+  answer: string;
+  intent: string;
+  evidence?: {
+    evidence_id: string;
+    source: string;
+    summary: string;
+    candidate_id?: string | null;
+    confidence?: number | null;
+  }[];
+  actions?: { type: string; label: string; payload: Record<string, any> }[];
+  warnings?: { code: string; message: string }[];
+};
+
+function mapAssessmentInvite(raw: BackendAssessmentInvite): AssessmentInvite {
+  return {
+    candidateId: raw.candidate_id,
+    assessmentId: raw.assessment_id,
+    inviteId: raw.invite_id,
+    token: raw.token,
+    status: raw.status,
+    inviteUrl: raw.invite_url,
+  };
+}
+
+function mapEvaluation(raw: any): AssessmentEvaluation {
+  return {
+    id: raw.id,
+    submissionId: raw.submission_id,
+    correctnessScore: raw.correctness_score,
+    efficiencyScore: raw.efficiency_score,
+    codeQualityScore: raw.code_quality_score,
+    overallScore: raw.overall_score,
+    isCorrect: raw.is_correct,
+    timeComplexity: raw.time_complexity,
+    spaceComplexity: raw.space_complexity,
+    strengths: raw.strengths || [],
+    detectedIssues: raw.detected_issues || [],
+    improvements: raw.improvements || [],
+    explanation: raw.explanation,
+  };
+}
+
+function mapAssessmentResult(raw: any): AssessmentResult {
+  return {
+    profileId: raw.profile_id,
+    status: raw.status,
+    overallScore: raw.overall_score,
+    invite: raw.invite
+      ? {
+          id: raw.invite.id,
+          testId: raw.invite.test_id,
+          candidateName: raw.invite.candidate_name,
+          candidateEmail: raw.invite.candidate_email,
+          profileId: raw.invite.profile_id,
+          token: raw.invite.token,
+          status: raw.invite.status,
+        }
+      : null,
+    assessment: raw.assessment
+      ? {
+          id: raw.assessment.id,
+          title: raw.assessment.title,
+          description: raw.assessment.description,
+          interviewerId: raw.assessment.interviewer_id,
+        }
+      : null,
+    questions: (raw.questions || []).map((q: any) => ({
+      id: q.id,
+      testId: q.test_id,
+      questionText: q.question_text,
+      language: q.language,
+    })),
+    submissions: (raw.submissions || []).map((s: any) => ({
+      id: s.id,
+      inviteId: s.invite_id,
+      questionId: s.question_id,
+      code: s.code,
+      language: s.language,
+      status: s.status,
+      stdout: s.stdout,
+      stderr: s.stderr,
+      executionTimeMs: s.execution_time_ms,
+      evaluation: s.evaluation ? mapEvaluation(s.evaluation) : null,
+    })),
+  };
+}
+
+function mapEvidenceItem(raw: any): EvidenceItem {
+  return {
+    evidenceId: raw.evidence_id,
+    source: raw.source,
+    category: raw.category,
+    claim: raw.claim,
+    value: raw.value,
+    score: raw.score,
+    confidence: raw.confidence,
+    provenance: raw.provenance,
+  };
+}
+
+function mapCandidateEvidence(raw: any): CandidateEvidence {
+  return {
+    candidateId: raw.candidate_id,
+    candidateName: raw.candidate_name,
+    resumeEvidence: (raw.resume_evidence || []).map(mapEvidenceItem),
+    rankingEvidence: raw.ranking_evidence,
+    assessmentEvidence: (raw.assessment_evidence || []).map(mapEvidenceItem),
+    comparisonEvidence: (raw.comparison_evidence || []).map(mapEvidenceItem),
+    evidenceReferences: raw.evidence_references || [],
+    missingEvidence: raw.missing_evidence || [],
+    overallConfidence: raw.overall_confidence,
+  };
+}
+
+function mapBackendCandidate(raw: BackendCandidate, ranking?: BackendRanking): Candidate {
+  const matchedSkills = ranking?.matched_skills || [];
+  const missingSkills = ranking?.missing_skills || [];
+  return {
+    id: raw.candidate_id,
+    jobId: raw.analysis_id,
+    name: raw.name || ranking?.candidate_name || raw.candidate_id,
+    title: 'Candidate',
+    email: raw.email,
+    location: 'Location unavailable',
+    rank: ranking?.rank || 0,
+    finalScore: ranking?.final_score,
+    semanticScore: ranking?.semantic_score,
+    keywordScore: ranking?.keyword_score,
+    requiredSkillsMatched: matchedSkills.length,
+    requiredSkillsTotal: matchedSkills.length + missingSkills.length,
+    preferredSkillsMatched: 0,
+    preferredSkillsTotal: 0,
+    matchedSkills,
+    missingSkills,
+    skillEvidence: {},
+    explanation: ranking
+      ? `Ranked #${ranking.rank} with ${ranking.final_score}% final score.`
+      : 'Ranking data is not available for this candidate.',
+    experience: 'Experience details are available in the evidence record.',
+    experienceYears: 0,
+    education: [],
+    projects: [],
+    workHistory: [],
+    links: {},
+    verificationAlerts: [],
+    verificationStatus: 'unverified',
+    currentStage: raw.current_stage,
+    resume: raw.resume_ref
+      ? {
+          id: raw.resume_ref,
+          fileName: raw.resume_ref,
+          fileType: 'pdf',
+          uploadedAt: '',
+          parsingStatus: 'completed',
+        }
+      : undefined,
+  };
+}
+
+function mergeCandidateRanking(candidate: BackendCandidate, rankings: BackendRanking[]): Candidate {
+  return mapBackendCandidate(
+    candidate,
+    rankings.find((ranking) => ranking.candidate_id === candidate.candidate_id)
+  );
+}
+
+export async function getBackendRankings(): Promise<BackendRanking[]> {
+  const { data } = await client.get<BackendRanking[]>('/rankings');
+  return data;
+}
+
+export async function listBackendCandidates(): Promise<Candidate[]> {
+  const [{ data: candidates }, rankings] = await Promise.all([
+    client.get<BackendCandidate[]>('/candidates'),
+    getBackendRankings(),
+  ]);
+  return candidates.map((candidate) => mergeCandidateRanking(candidate, rankings));
+}
+
+export async function getBackendCandidate(candidateId: string): Promise<Candidate> {
+  const [{ data: candidate }, rankings] = await Promise.all([
+    client.get<BackendCandidate>(`/candidates/${candidateId}`),
+    getBackendRankings(),
+  ]);
+  return mergeCandidateRanking(candidate, rankings);
+}
+
+export async function shortlistCandidate(candidateId: string): Promise<{ candidate: Candidate; changed: boolean }> {
+  const { data } = await client.post<{ candidate: BackendCandidate; changed: boolean }>(
+    `/candidates/${candidateId}/shortlist`
+  );
+  const rankings = await getBackendRankings();
+  return {
+    candidate: mergeCandidateRanking(data.candidate, rankings),
+    changed: data.changed,
+  };
+}
+
+export async function createCandidateAssessment(
+  candidateId: string,
+  questionText = 'Implement a small REST API endpoint that validates input, stores a record, and returns a structured JSON response.',
+  language = 'python'
+): Promise<AssessmentInvite> {
+  const { data } = await client.post<BackendAssessmentInvite>(
+    `/candidates/${candidateId}/assessment`,
+    { question_text: questionText, language }
+  );
+  return mapAssessmentInvite(data);
+}
+
+export async function getAssessmentStatus(candidateId: string): Promise<AssessmentResult> {
+  const { data } = await client.get(`/candidates/${candidateId}/assessment/status`);
+  return mapAssessmentResult(data);
+}
+
+export async function getAssessmentResult(candidateId: string): Promise<AssessmentResult> {
+  const { data } = await client.get(`/candidates/${candidateId}/assessment/result`);
+  return mapAssessmentResult(data);
+}
+
+export async function getCandidateEvidence(candidateId: string): Promise<CandidateEvidence> {
+  const { data } = await client.get(`/candidates/${candidateId}/evidence/comparison`);
+  return mapCandidateEvidence(data);
+}
+
+export async function submitHrDecision(candidateId: string, decision: HRDecision['decision'], reason?: string) {
+  const { data } = await client.post<BackendCandidate>(`/candidates/${candidateId}/hr-decision`, {
+    decision,
+    reason,
+  });
+  const rankings = await getBackendRankings();
+  return mergeCandidateRanking(data, rankings);
+}
+
+export async function chatWithRecruiterBackend(
+  message: string,
+  candidateIds: string[] = [],
+  conversationId?: string | null
+): Promise<ChatMessage> {
+  const { data } = await client.post<BackendChatResponse>('/recruiter/chat', {
+    message,
+    candidate_ids: candidateIds,
+    conversation_id: conversationId || null,
+  });
+  const evidence = data.evidence?.length
+    ? `\n\nEvidence:\n${data.evidence.map((item) => `- [${item.source}] ${item.summary}`).join('\n')}`
+    : '';
+  const actions = data.actions?.length
+    ? `\n\nActions:\n${data.actions.map((item) => `- ${item.label}`).join('\n')}`
+    : '';
+  const warnings = data.warnings?.length
+    ? `\n\nWarnings:\n${data.warnings.map((item) => `- ${item.message}`).join('\n')}`
+    : '';
+  return {
+    id: crypto.randomUUID(),
+    role: 'assistant',
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    content: `${data.answer}${evidence}${actions}${warnings}`,
+  };
+}
 
 export async function getAnalysis(_id: string): Promise<Analysis> {
   await wait();
@@ -46,34 +361,26 @@ export async function startAnalysis(_id: string) {
   return { status: 'processing' as const };
 }
 
-export type SimulatedCandidate = Candidate & {
-  rankDelta: number;
-  originalRank: number;
-};
-
 export function simulateHiringWeights(
   weights: HiringWeights,
   baseCandidates: Candidate[] = defaultCandidates
-): { candidates: SimulatedCandidate[]; explanation: string } {
-  // Normalize weights (default 50 = neutral)
+): { candidates: (Candidate & { rankDelta: number; originalRank: number })[]; explanation: string } {
+  // Normalize weights (default 50)
   const wFrontend = weights.frontend / 50;
   const wBackend = weights.backend / 50;
   const wCloud = weights.cloud / 50;
   const wExp = weights.experience / 50;
   const wProjects = weights.projects / 50;
   const wRequired = weights.requiredSkills / 50;
-  const wEducation = weights.education / 50;
 
   const recalculated = baseCandidates.map((c) => {
     let multiplier = 1.0;
 
-    // Frontend weight impact (JD-derived frontend skill categories)
+    // Frontend weight impact
     const hasAngular = c.matchedSkills.includes('Angular');
     const hasReact = c.matchedSkills.includes('React');
-    if (hasAngular && hasReact) {
-      multiplier *= 1 + (wFrontend - 1) * 0.18;
-    } else if (hasAngular || hasReact) {
-      multiplier *= 1 + (wFrontend - 1) * 0.1;
+    if (hasAngular || hasReact) {
+      multiplier *= 1 + (wFrontend - 1) * 0.15;
     } else {
       multiplier *= 1 - (wFrontend - 1) * 0.1;
     }
@@ -100,18 +407,17 @@ export function simulateHiringWeights(
       multiplier *= 1 - (wCloud - 1) * 0.08;
     }
 
-    // Experience weight impact — relevant experience, not raw tenure
-    if (c.relevantExperienceYears >= 2.5) {
+    // Experience weight impact
+    if (c.experienceYears >= 3.0) {
       multiplier *= 1 + (wExp - 1) * 0.12;
-    } else if (c.relevantExperienceYears < 1.5) {
+    } else if (c.experienceYears < 2.0) {
       multiplier *= 1 - (wExp - 1) * 0.1;
     }
 
-    // Projects weight impact — relevant projects, not raw count
-    if (c.relevantProjectsCount >= 2) {
-      multiplier *= 1 + (wProjects - 1) * 0.12;
-    } else if (c.relevantProjectsCount === 0) {
-      multiplier *= 1 - (wProjects - 1) * 0.08;
+    // Projects weight impact
+    const strongProjectsCount = c.projects.length;
+    if (strongProjectsCount >= 2) {
+      multiplier *= 1 + (wProjects - 1) * 0.1;
     }
 
     // Required skills weight impact
@@ -121,17 +427,7 @@ export function simulateHiringWeights(
       multiplier *= 1 - (wRequired - 1) * 0.15;
     }
 
-    // Education weight impact — CGPA, deliberately bounded so it never dominates
-    if (c.cgpa >= 9) {
-      multiplier *= 1 + (wEducation - 1) * 0.08;
-    } else if (c.cgpa < 7) {
-      multiplier *= 1 - (wEducation - 1) * 0.08;
-    }
-
-    const calculatedScore = Math.min(
-      99.4,
-      Math.max(25, Number((c.finalScore * multiplier).toFixed(1)))
-    );
+    const calculatedScore = Math.min(99.4, Math.max(25, Number(((c.finalScore ?? 70) * multiplier).toFixed(1))));
 
     return {
       ...c,
@@ -143,7 +439,7 @@ export function simulateHiringWeights(
   // Sort descending
   recalculated.sort((a, b) => b.simulatedScore - a.simulatedScore);
 
-  const rankedWithDelta: SimulatedCandidate[] = recalculated.map((c, index) => {
+  const rankedWithDelta = recalculated.map((c, index) => {
     const newRank = index + 1;
     const rankDelta = c.originalRank - newRank; // positive means moved up, negative means moved down
     return {
@@ -155,244 +451,29 @@ export function simulateHiringWeights(
     };
   });
 
-  // Generate clear reason explanation from the actual weight configuration
+  // Generate clear reason explanation
   let explanation = 'Rankings updated based on adjusted hiring parameters. ';
   if (weights.cloud > 65) {
-    explanation +=
-      'Increased Cloud/DevOps weighting elevated candidates with verified AWS & Docker evidence. ';
-  }
-  if (weights.backend > 65) {
-    explanation +=
-      'Elevated Backend weighting prioritized candidates with Python and relational SQL pipelines. ';
-  }
-  if (weights.frontend > 65) {
-    explanation +=
-      'Heightened Frontend weighting favored candidates with Angular and React framework evidence. ';
-  }
-  if (weights.experience > 65) {
-    explanation +=
-      'Experience weighting increased priority for candidates with 2.5+ years of relevant experience. ';
-  }
-  if (weights.projects > 65) {
-    explanation +=
-      'Project weighting boosted candidates with multiple JD-relevant projects. ';
-  }
-  if (weights.requiredSkills > 65) {
-    explanation +=
-      'Stricter required-skills weighting penalizes candidates with gaps against mandatory JD skills. ';
-  }
-  if (weights.education > 65) {
-    explanation += 'Higher education weighting favors strong CGPA, capped so academics never dominate. ';
-  }
-  if (
-    weights.frontend <= 65 &&
-    weights.backend <= 65 &&
-    weights.cloud <= 65 &&
-    weights.experience <= 65 &&
-    weights.projects <= 65 &&
-    weights.requiredSkills <= 65 &&
-    weights.education <= 65
-  ) {
-    explanation +=
-      'Balanced weights evaluate dual semantic match and keyword skill coverage across all requirements.';
+    explanation += 'Increased Cloud/DevOps weighting elevated candidates with verified AWS & Docker experience (e.g. Maya Patel and Leo Martin). ';
+  } else if (weights.backend > 65) {
+    explanation += 'Elevated Backend weighting prioritized candidates with verified Python and relational SQL pipelines. ';
+  } else if (weights.frontend > 65) {
+    explanation += 'Heightened Frontend weighting favored candidates with verified Angular and React enterprise experience. ';
+  } else if (weights.experience > 65) {
+    explanation += 'Experience weighting increased priority for candidates with 3+ years of production engineering experience. ';
+  } else {
+    explanation += 'Balanced weights evaluate dual semantic match and keyword skill coverage across all requirements.';
   }
 
   return { candidates: rankedWithDelta, explanation };
 }
 
 export async function chatWithRecruiter(
-  question: string,
-  candidateList: Candidate[] = defaultCandidates
+  prompt: string,
+  candidates: Candidate[] = defaultCandidates
 ): Promise<ChatMessage> {
-  await wait(400);
-
-  const lower = question.toLowerCase();
-  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-  const reply = (content: string): ChatMessage => ({
-    id: crypto.randomUUID(),
-    role: 'assistant',
-    timestamp: time,
-    content,
-  });
-
-  // ------------------------------------------------------------------
-  // Candidate name resolution against the actual analysis pool
-  // ------------------------------------------------------------------
-  const mentioned = candidateList
-    .filter((c) => {
-      const firstName = c.name.toLowerCase().split(' ')[0];
-      const fullName = c.name.toLowerCase();
-      return lower.includes(fullName) || lower.includes(firstName);
-    })
-    .slice(0, 2);
-
-  // ------------------------------------------------------------------
-  // 1. "Why is X ranked ..." — ranking explanation from actual score data
-  // ------------------------------------------------------------------
-  if (
-    (lower.includes('why') && mentioned.length > 0) ||
-    lower.includes('ranked #1') ||
-    lower.includes('rank 1') ||
-    lower.includes('rank #1') ||
-    lower.includes('ranked first') ||
-    lower.includes('ranked no. 1') ||
-    lower.includes('top candidate') ||
-    ((lower.includes('why') || lower.includes('explain')) &&
-      (lower.includes('first') || lower.includes('#1') || lower.includes('top')))
-  ) {
-    const target =
-      mentioned[0] || [...candidateList].sort((a, b) => b.finalScore - a.finalScore)[0];
-    const rankedAhead = candidateList.filter((c) => c.finalScore > target.finalScore).length;
-    return reply(
-      `${target.name} is ranked #${target.rank} with a ${target.finalScore.toFixed(1)}% Match Score` +
-        (rankedAhead > 0
-          ? ` — ${rankedAhead} candidate${rankedAhead === 1 ? '' : 's'} scored higher.`
-          : ' — the highest in this pool.') +
-        `\n\nScore breakdown (100-pt baseline):\n` +
-        `• Semantic JD Match: ${target.semanticScoreWeight}/35 (raw ${target.semanticScore}%)\n` +
-        `• Keyword / Skill Match: ${target.keywordScoreWeight}/25 (raw ${target.keywordScore}%)\n` +
-        `• Relevant Experience: ${target.experienceScoreWeight}/15 (${target.relevantExperienceYears} yrs relevant)\n` +
-        `• Relevant Projects: ${target.projectScoreWeight}/15 (${target.relevantProjectsCount} of ${target.totalProjects} relevant)\n` +
-        `• Education / CGPA: ${target.educationScoreWeight}/10 (CGPA ${target.cgpa}/${target.cgpaScale})\n\n` +
-        `Required skill coverage: ${target.requiredSkillsMatched}/${target.requiredSkillsTotal}.` +
-        (target.missingSkills.length > 0
-          ? ` Gaps: ${target.missingSkills.join(', ')}.`
-          : ' No required-skill gaps.') +
-        (target.verificationAlerts.length > 0
-          ? `\n\nNote: A timeline overlap flag exists on this profile for screening verification. It does not affect the Match Score.`
-          : '')
-    );
-  }
-
-  // ------------------------------------------------------------------
-  // 2. Compare two candidates (by name, or default top two)
-  // ------------------------------------------------------------------
-  if (lower.includes('compare') || mentioned.length === 2) {
-    const a = mentioned[0] || candidateList[0];
-    const b = mentioned[1] || candidateList[1];
-    const higher = a.finalScore >= b.finalScore ? a : b;
-    const other = a.finalScore >= b.finalScore ? b : a;
-    const diff = (higher.finalScore - other.finalScore).toFixed(1);
-
-    return reply(
-      `Comparison — ${a.name} (#${a.rank}, ${a.finalScore.toFixed(1)}%) vs ${b.name} (#${b.rank}, ${b.finalScore.toFixed(1)}%):\n\n` +
-        `• Match Scores: ${higher.name} leads by +${diff}% overall (Semantic: ${a.semanticScore}% vs ${b.semanticScore}%, Keyword: ${a.keywordScore}% vs ${b.keywordScore}%).\n` +
-        `• Required Skills: ${a.requiredSkillsMatched}/${a.requiredSkillsTotal} vs ${b.requiredSkillsMatched}/${b.requiredSkillsTotal}.\n` +
-        `• Experience: ${a.name} — ${a.relevantExperienceYears} yrs relevant, ${a.totalInternships} internship(s); ${b.name} — ${b.relevantExperienceYears} yrs relevant, ${b.totalInternships} internship(s).\n` +
-        `• Relevant Projects: ${a.relevantProjectsCount} vs ${b.relevantProjectsCount}.\n` +
-        `• CGPA: ${a.cgpa}/${a.cgpaScale} vs ${b.cgpa}/${b.cgpaScale} — education carries only 10% of the Match Score.\n` +
-        `• Verification: ${
-          a.verificationAlerts.length > 0
-            ? `${a.name} has an open timeline check (review recommended)`
-            : `${a.name} verified`
-        } · ${
-          b.verificationAlerts.length > 0
-            ? `${b.name} has an open timeline check (review recommended)`
-            : `${b.name} verified`
-        }.`
-    );
-  }
-
-  // ------------------------------------------------------------------
-  // 3. Skill-coverage queries: who has / who is missing a known skill
-  // ------------------------------------------------------------------
-  const skillUniverse = Array.from(
-    new Set(candidateList.flatMap((c) => [...c.matchedSkills, ...c.missingSkills]))
-  );
-  const askedSkill = skillUniverse.find((s) => lower.includes(s.toLowerCase()));
-
-  if (askedSkill) {
-    const withSkill = candidateList.filter((c) => c.matchedSkills.includes(askedSkill));
-    const missingSkill = candidateList.filter((c) => !c.matchedSkills.includes(askedSkill));
-
-    if (
-      lower.includes('missing') ||
-      lower.includes('lacks') ||
-      lower.includes('without') ||
-      lower.includes('no ')
-    ) {
-      return reply(
-        `${missingSkill.length} of ${candidateList.length} candidates do not show sufficient evidence of ${askedSkill} in their resumes.\n\n` +
-          (withSkill.length > 0
-            ? `Candidates WITH ${askedSkill} evidence:\n` +
-              withSkill
-                .slice(0, 6)
-                .map((c) => `• ${c.name} (#${c.rank}) — ${c.finalScore.toFixed(1)}% match`)
-                .join('\n')
-            : `No candidate in this pool shows evidence of ${askedSkill}.`)
-      );
-    }
-
-    const strongEvidence = withSkill.filter(
-      (c) => c.skillEvidence?.[askedSkill]?.level === 'strong'
-    );
-    return reply(
-      `${withSkill.length} of ${candidateList.length} candidates show evidence of ${askedSkill}` +
-        ` (${strongEvidence.length} with strong multi-source evidence):\n\n` +
-        (withSkill.length > 0
-          ? withSkill
-              .slice(0, 6)
-              .map(
-                (c) =>
-                  `• ${c.name} (#${c.rank}) — ${c.finalScore.toFixed(1)}% match, ${
-                    c.skillEvidence?.[askedSkill]?.level ?? 'limited'
-                  } evidence`
-              )
-              .join('\n')
-          : `No candidates found.`) +
-        (missingSkill.length > 0
-          ? `\n\nMissing ${askedSkill}: ${missingSkill.length} candidates (inspect them in the Skill Coverage table).`
-          : '')
-    );
-  }
-
-  // ------------------------------------------------------------------
-  // 4. Biggest skill gap across the pool
-  // ------------------------------------------------------------------
-  if (lower.includes('gap') || lower.includes('shortage') || lower.includes('biggest')) {
-    const skillCounts = new Map<string, number>();
-    candidateList.forEach((c) =>
-      c.matchedSkills.forEach((s) => skillCounts.set(s, (skillCounts.get(s) ?? 0) + 1))
-    );
-    const gaps = skillUniverse
-      .map((s) => ({
-        skill: s,
-        matching: skillCounts.get(s) ?? 0,
-        missing: candidateList.length - (skillCounts.get(s) ?? 0),
-      }))
-      .sort((a, b) => b.missing - a.missing)
-      .slice(0, 3);
-
-    return reply(
-      `The largest candidate gaps in this pool are:\n\n` +
-        gaps
-          .map(
-            (g, i) =>
-              `${i + 1}. ${g.skill}: ${g.missing} candidates missing (${g.matching} match, ${Math.round(
-                (g.matching / candidateList.length) * 100
-              )}% coverage)`
-          )
-          .join('\n')
-    );
-  }
-
-  // ------------------------------------------------------------------
-  // 5. Default overview answer, computed from actual pool data
-  // ------------------------------------------------------------------
-  const top3 = [...candidateList].sort((a, b) => b.finalScore - a.finalScore).slice(0, 3);
-  return reply(
-    `Based on the active analysis of ${candidateList.length} candidates:\n\n` +
-      top3
-        .map(
-          (c, i) =>
-            `${i + 1}. ${c.name} (#${c.rank}) — ${c.finalScore.toFixed(1)}% match (Semantic ${
-              c.semanticScore
-            }%, Keyword ${c.keywordScore}%)`
-        )
-        .join('\n') +
-      `\n\nI can compare candidates, detail skill coverage (e.g. ${skillUniverse
-        .slice(0, 3)
-        .join(', ')}), explain rankings, or identify the biggest skill gaps — all grounded in the actual analysis data.`
-  );
+  const backendCandidateIds = candidates
+    .filter((candidate) => candidate.currentStage)
+    .map((candidate) => candidate.id);
+  return chatWithRecruiterBackend(prompt, backendCandidateIds);
 }

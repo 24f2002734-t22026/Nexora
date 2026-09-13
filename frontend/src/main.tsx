@@ -39,7 +39,8 @@ import {
   ShieldAlert,
   ShieldCheck,
   Eye,
-  Columns2
+  Columns2,
+  Briefcase
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { demoAnalysis, candidates as initialCandidates, jobSkills } from './data';
@@ -50,7 +51,11 @@ import { CandidateDetailView } from './components/CandidateDetailView';
 import { CandidateComparisonModal } from './components/CandidateComparisonModal';
 import { HiringSimulator } from './components/HiringSimulator';
 import { RecruiterChatbot } from './components/RecruiterChatbot';
-import type { Candidate, JobSkill, HiringWeights } from './types';
+import { JobOpeningsTable } from './components/JobOpeningsTable';
+import { JobCandidatesView } from './components/JobCandidatesView';
+import { store } from './services/store';
+import { getBackendCandidate } from './services/api';
+import type { Candidate, JobSkill, JobOpening } from './types';
 import './styles.css';
 
 // ---------------------------------------------------------------------------
@@ -81,14 +86,42 @@ const useAuth = () => useContext(AuthContext);
 // ---------------------------------------------------------------------------
 // APPLICATION SHELL & BRAND LOGO
 // ---------------------------------------------------------------------------
-function NexoraLogo({ className = '' }: { className?: string }) {
+export function NexoraLogo({ className = '', size = 36 }: { className?: string; size?: number }) {
   return (
     <div className={`nexora-logo ${className}`}>
-      <div className="logo-badge">
-        <Sparkles size={16} />
+      <div className="logo-mark" style={{ width: size, height: size }}>
+        <svg
+          width={Math.round(size * 0.65)}
+          height={Math.round(size * 0.65)}
+          viewBox="0 0 28 28"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id="nexoraGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#93c5fd" />
+              <stop offset="50%" stopColor="#3b82f6" />
+              <stop offset="100%" stopColor="#1d4ed8" />
+            </linearGradient>
+            <linearGradient id="nexoraGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#60a5fa" />
+              <stop offset="100%" stopColor="#2563eb" />
+            </linearGradient>
+          </defs>
+          {/* Left Vertical Pillar */}
+          <path d="M4 23V5L10 5V23H4Z" fill="url(#nexoraGrad1)" />
+          {/* Diagonal Nexus Slash */}
+          <path d="M8 5L20 23H24L12 5H8Z" fill="url(#nexoraGrad2)" />
+          {/* Right Vertical Pillar */}
+          <path d="M18 5L24 5V23H18V5Z" fill="url(#nexoraGrad1)" />
+          {/* Central AI Quantum Sparkle Dot */}
+          <circle cx="14" cy="14" r="2.2" fill="#ffffff" />
+          <path d="M14 9.5V18.5M9.5 14H18.5" stroke="#ffffff" strokeWidth="1" strokeLinecap="square" />
+        </svg>
       </div>
       <div className="logo-text">
         <span className="brand-name">NEXORA</span>
+        <span className="brand-subtitle">TALENT INTELLIGENCE</span>
       </div>
     </div>
   );
@@ -101,7 +134,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
   const navItems: [string, React.ComponentType<{ size?: number }>, string][] = [
     ['/dashboard', LayoutDashboard, 'Dashboard'],
-    ['/analysis/new', Plus, 'New Analysis'],
+    ['/analysis', Briefcase, 'Job Openings'],
     ['/candidates', Users, 'Candidates'],
     ['/settings', Settings, 'Settings'],
   ];
@@ -164,7 +197,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
           <div className="topbar-context">
             <span className="topbar-crumb">Workspace / Candidate Intelligence</span>
-            <h2 className="topbar-title">{demoAnalysis.jobTitle}</h2>
+            <h2 className="topbar-title">Senior Full Stack Engineer</h2>
           </div>
 
           <div className="topbar-actions">
@@ -182,9 +215,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
               className="icon-button"
               title="Notifications"
               aria-label="Notifications"
-              onClick={() =>
-                toast.info(`All ${demoAnalysis.candidateCount} candidates processed successfully.`)
-              }
+              onClick={() => toast.info('All 18 candidates processed successfully.')}
             >
               <Bell size={18} />
             </button>
@@ -210,13 +241,6 @@ function LoginPage() {
   return (
     <div className="login-screen">
       <div className="login-container">
-        {!firebaseEnabled && (
-          <div className="env-setup-note">
-            <b>Google OAuth not configured in this environment.</b> Copy .env.example to .env.local
-            and add your Firebase keys to enable real Google Sign-In. For now you can explore with
-            the demo workspace below.
-          </div>
-        )}
         <div className="login-brand-header">
           <NexoraLogo />
           <p className="login-tagline">Candidate intelligence for better hiring.</p>
@@ -283,69 +307,33 @@ function LoginPage() {
 function DashboardPage() {
   const navigate = useNavigate();
 
-  const pool = demoAnalysis.candidates;
-  const jdSkills = demoAnalysis.requiredSkills;
-
-  // Score distribution histogram (computed from actual pool)
-  const scoreBuckets = [
-    { range: '90–100', min: 90, max: 100.01, fill: '#2563eb' },
-    { range: '80–89', min: 80, max: 90, fill: '#3b82f6' },
-    { range: '70–79', min: 70, max: 80, fill: '#60a5fa' },
-    { range: '60–69', min: 60, max: 70, fill: '#f59e0b' },
-    { range: '<60', min: 0, max: 60, fill: '#94a3b8' },
+  // Score distribution histogram
+  const scoreDistribution = [
+    { range: '90–100', count: 2, fill: '#2563eb' },
+    { range: '80–89', count: 4, fill: '#3b82f6' },
+    { range: '70–79', count: 4, fill: '#60a5fa' },
+    { range: '60–69', count: 3, fill: '#f59e0b' },
+    { range: '<60', count: 5, fill: '#94a3b8' },
   ];
-  const scoreDistribution = scoreBuckets.map((b) => ({
-    range: b.range,
-    fill: b.fill,
-    count: pool.filter((c) => c.finalScore >= b.min && c.finalScore < b.max).length,
-  }));
 
-  // Skill coverage chart (computed from actual pool)
-  const skillCoverageData = jdSkills.map((s) => ({
-    skill: s.name,
-    matching: s.matchingCount,
-    missing: s.missingCount,
-  }));
+  // Skill coverage chart
+  const skillCoverageData = [
+    { skill: 'SQL', matching: 15, missing: 3 },
+    { skill: 'Python', matching: 12, missing: 6 },
+    { skill: 'TypeScript', matching: 12, missing: 6 },
+    { skill: 'React', matching: 11, missing: 7 },
+    { skill: 'Angular', matching: 8, missing: 10 },
+    { skill: 'Docker', matching: 8, missing: 10 },
+    { skill: 'AWS', matching: 6, missing: 12 },
+  ];
 
-  // Match quality donut chart (computed from actual pool)
+  // Match quality donut chart
   const matchQualityData = [
-    { name: 'Strong Match (≥80%)', value: pool.filter((c) => c.finalScore >= 80).length, color: '#16a34a' },
-    { name: 'Good Match (70–79%)', value: pool.filter((c) => c.finalScore >= 70 && c.finalScore < 80).length, color: '#2563eb' },
-    { name: 'Needs Review (60–69%)', value: pool.filter((c) => c.finalScore >= 60 && c.finalScore < 70).length, color: '#f59e0b' },
-    { name: 'Low Match (<60%)', value: pool.filter((c) => c.finalScore < 60).length, color: '#94a3b8' },
+    { name: 'Strong Match (≥80%)', value: 6, color: '#16a34a' },
+    { name: 'Good Match (70–79%)', value: 4, color: '#2563eb' },
+    { name: 'Needs Review (60–69%)', value: 3, color: '#f59e0b' },
+    { name: 'Low Match (<60%)', value: 5, color: '#94a3b8' },
   ];
-
-  // CGPA distribution (computed from actual pool)
-  const cgpaBuckets = [
-    { range: '9–10', min: 9, max: 11, fill: '#4F46E5' },
-    { range: '8–9', min: 8, max: 9, fill: '#6366F1' },
-    { range: '7–8', min: 7, max: 8, fill: '#60a5fa' },
-    { range: '6–7', min: 6, max: 7, fill: '#f59e0b' },
-  ];
-  const cgpaDistribution = cgpaBuckets.map((b) => ({
-    range: b.range,
-    fill: b.fill,
-    count: pool.filter((c) => c.cgpa >= b.min && c.cgpa < b.max).length,
-  }));
-
-  // Relevant-experience profile (computed from actual pool)
-  const expBuckets = [
-    { range: '0–1 yr', min: 0, max: 1, fill: '#94a3b8' },
-    { range: '1–2 yrs', min: 1, max: 2, fill: '#60a5fa' },
-    { range: '2–3 yrs', min: 2, max: 3, fill: '#3b82f6' },
-    { range: '3+ yrs', min: 3, max: 99, fill: '#10B981' },
-  ];
-  const expDistribution = expBuckets.map((b) => ({
-    range: b.range,
-    fill: b.fill,
-    count: pool.filter((c) => c.relevantExperienceYears >= b.min && c.relevantExperienceYears < b.max).length,
-  }));
-
-  // Headline stats (computed from actual pool)
-  const strongMatches = pool.filter((c) => c.finalScore >= 80).length;
-  const needsReview = pool.filter((c) => c.verificationAlerts.length > 0 || c.finalScore < 70).length;
-  const requiredSkills = jdSkills.filter((s) => s.priority === 'required');
-  const topCandidate = [...pool].sort((a, b) => b.finalScore - a.finalScore)[0];
 
   return (
     <div className="dashboard-view">
@@ -355,7 +343,7 @@ function DashboardPage() {
           <span className="eyebrow">NEXORA DASHBOARD</span>
           <h1>Recruiter Intelligence Overview</h1>
           <p>
-            Candidate intelligence for better hiring. Active analysis for <b>{demoAnalysis.jobTitle}</b>.
+            Candidate intelligence for better hiring. Active analysis for <b>Senior Full Stack Engineer</b>.
           </p>
         </div>
         <div className="welcome-actions">
@@ -383,7 +371,7 @@ function DashboardPage() {
             <span className="stat-label">Candidates Analyzed</span>
             <Users size={16} className="stat-icon" />
           </div>
-          <div className="stat-number">{pool.length}</div>
+          <div className="stat-number">18</div>
           <small className="stat-sub">100% parsed & scored from active pool</small>
         </div>
 
@@ -392,7 +380,7 @@ function DashboardPage() {
             <span className="stat-label">Strong Matches</span>
             <CheckCircle2 size={16} className="stat-icon text-success" />
           </div>
-          <div className="stat-number">{strongMatches}</div>
+          <div className="stat-number">6</div>
           <small className="stat-sub">Match scores ≥ 80% with dual validation</small>
         </div>
 
@@ -401,7 +389,7 @@ function DashboardPage() {
             <span className="stat-label">Need Review</span>
             <AlertTriangle size={16} className="stat-icon text-warning" />
           </div>
-          <div className="stat-number">{needsReview}</div>
+          <div className="stat-number">4</div>
           <small className="stat-sub">Timeline checks or partial skill coverage</small>
         </div>
 
@@ -410,8 +398,8 @@ function DashboardPage() {
             <span className="stat-label">Required Skills</span>
             <FileCheck2 size={16} className="stat-icon text-primary" />
           </div>
-          <div className="stat-number">{requiredSkills.length}</div>
-          <small className="stat-sub">{requiredSkills.map((s) => s.name).join(', ')}</small>
+          <div className="stat-number">5</div>
+          <small className="stat-sub">Python, Angular, React, SQL, TypeScript</small>
         </div>
       </div>
 
@@ -428,13 +416,12 @@ function DashboardPage() {
             </span>
           </div>
           <p>
-            {demoAnalysis.jobDescriptionFileName} · {demoAnalysis.candidateCount} candidate resumes ·
-            Evaluated Sep 12, 2026
+            Full_Stack_Developer_JD.pdf · 18 candidate resumes · Evaluated Sep 12, 2026
           </p>
         </div>
         <div className="recent-score-preview">
           <small>Top Candidate Match</small>
-          <b>{topCandidate ? `${topCandidate.finalScore.toFixed(1)}%` : '—'}</b>
+          <b>94.0%</b>
         </div>
         <button
           type="button"
@@ -460,9 +447,9 @@ function DashboardPage() {
                 <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} allowDecimals={false} />
                 <Tooltip
                   formatter={(value) => [`${value} Candidates`, 'Count']}
-                  contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  contentStyle={{ backgroundColor: '#fff', borderRadius: '0px', border: '1px solid #e2e8f0' }}
                 />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                <Bar dataKey="count" radius={[0, 0, 0, 0]}>
                   {scoreDistribution.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
                   ))}
@@ -485,16 +472,16 @@ function DashboardPage() {
                 layout="vertical"
                 margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
               >
-                <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} domain={[0, pool.length]} />
+                <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} domain={[0, 18]} />
                 <YAxis dataKey="skill" type="category" stroke="#475569" fontSize={12} tickLine={false} width={80} />
                 <Tooltip
                   formatter={(val, name) => [
                     `${val} Candidates`,
                     name === 'matching' ? 'Matching' : 'Missing',
                   ]}
-                  contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  contentStyle={{ backgroundColor: '#fff', borderRadius: '0px', border: '1px solid #e2e8f0' }}
                 />
-                <Bar dataKey="matching" fill="#2563eb" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="matching" fill="#2563eb" radius={[0, 0, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -522,7 +509,7 @@ function DashboardPage() {
                 </Pie>
                 <Tooltip
                   formatter={(val) => [`${val} Candidates`, 'Count']}
-                  contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  contentStyle={{ backgroundColor: '#fff', borderRadius: '0px', border: '1px solid #e2e8f0' }}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -545,79 +532,49 @@ function DashboardPage() {
             <p>Required and preferred skills with the largest candidate gaps.</p>
           </div>
           <div className="skill-gaps-list">
-            {jdSkills
-              .map((s) => {
-                const coverage = pool.length > 0 ? (s.matchingCount / pool.length) * 100 : 0;
-                return { ...s, coverage };
-              })
-              .sort((a, b) => a.coverage - b.coverage)
-              .slice(0, 5)
-              .map((s) => (
-                <div key={s.name} className="skill-gap-item">
-                  <div className="gap-info">
-                    <b>
-                      {s.name} ({s.category.charAt(0).toUpperCase() + s.category.slice(1)})
-                    </b>
-                    <span className={`gap-tag ${s.priority}`}>{s.priority === 'required' ? 'Required' : 'Preferred'}</span>
-                  </div>
-                  <div className="gap-bar-wrap">
-                    <div className="gap-bar-fill" style={{ width: `${s.coverage}%` }} />
-                  </div>
-                  <span className="gap-count">
-                    {s.missingCount} missing ({Math.round(s.coverage)}% coverage)
-                  </span>
-                </div>
-              ))}
-          </div>
-        </div>
+            <div className="skill-gap-item">
+              <div className="gap-info">
+                <b>AWS (Cloud)</b>
+                <span className="gap-tag preferred">Preferred</span>
+              </div>
+              <div className="gap-bar-wrap">
+                <div className="gap-bar-fill" style={{ width: '67%' }} />
+              </div>
+              <span className="gap-count">12 missing (33% coverage)</span>
+            </div>
 
-        {/* Chart 5: CGPA Distribution */}
-        <div className="chart-panel">
-          <div className="chart-head">
-            <h3>CGPA Distribution</h3>
-            <p>Academic spread of the evaluated pool (CGPA never dominates the Match Score).</p>
-          </div>
-          <div className="chart-body" style={{ height: 210 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={cgpaDistribution} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <XAxis dataKey="range" stroke="#94a3b8" fontSize={12} tickLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} allowDecimals={false} />
-                <Tooltip
-                  formatter={(value) => [`${value} Candidates`, 'Count']}
-                  contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                  {cgpaDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+            <div className="skill-gap-item">
+              <div className="gap-info">
+                <b>Angular (Frontend)</b>
+                <span className="gap-tag required">Required</span>
+              </div>
+              <div className="gap-bar-wrap">
+                <div className="gap-bar-fill" style={{ width: '56%' }} />
+              </div>
+              <span className="gap-count">10 missing (44% coverage)</span>
+            </div>
 
-        {/* Chart 6: Relevant Experience Profile */}
-        <div className="chart-panel">
-          <div className="chart-head">
-            <h3>Relevant Experience Profile</h3>
-            <p>JD-relevant experience (not raw tenure) across the pool.</p>
-          </div>
-          <div className="chart-body" style={{ height: 210 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={expDistribution} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <XAxis dataKey="range" stroke="#94a3b8" fontSize={12} tickLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} allowDecimals={false} />
-                <Tooltip
-                  formatter={(value) => [`${value} Candidates`, 'Count']}
-                  contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                  {expDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="skill-gap-item">
+              <div className="gap-info">
+                <b>Docker (Cloud)</b>
+                <span className="gap-tag preferred">Preferred</span>
+              </div>
+              <div className="gap-bar-wrap">
+                <div className="gap-bar-fill" style={{ width: '56%' }} />
+              </div>
+              <span className="gap-count">10 missing (44% coverage)</span>
+            </div>
+
+            <div className="skill-gap-item">
+              <div className="gap-info">
+                <b>React (Frontend)</b>
+                <span className="gap-tag required">Required</span>
+              </div>
+              <div className="gap-bar-wrap">
+                <div className="gap-bar-fill" style={{ width: '39%' }} />
+              </div>
+              <span className="gap-count">7 missing (61% coverage)</span>
+            </div>
           </div>
         </div>
       </div>
@@ -638,7 +595,7 @@ function DashboardPage() {
       </div>
 
       <div className="top-candidates-preview-grid">
-        {pool.slice(0, 3).map((c) => (
+        {initialCandidates.slice(0, 3).map((c) => (
           <div
             key={c.id}
             className="top-candidate-card"
@@ -647,7 +604,7 @@ function DashboardPage() {
             <div className="top-card-header">
               <span className="top-rank-badge">#{c.rank}</span>
               <div className="top-score-badge">
-                <b>{c.finalScore.toFixed(1)}%</b>
+                <b>{c.finalScore !== undefined ? `${c.finalScore.toFixed(1)}%` : '—'}</b>
                 <small>Match</small>
               </div>
             </div>
@@ -670,7 +627,7 @@ function DashboardPage() {
         ))}
       </div>
 
-      <RecruiterChatbot candidates={initialCandidates} jobTitle={demoAnalysis.jobTitle} />
+      <RecruiterChatbot candidates={initialCandidates} />
     </div>
   );
 }
@@ -1014,15 +971,6 @@ function AnalysisResultsPage() {
   const [candidates] = useState<Candidate[]>(initialCandidates);
   const [skills] = useState<JobSkill[]>(jobSkills);
 
-  // Pool statistics derived from actual analysis data
-  const topCandidate = [...candidates].sort((a, b) => b.finalScore - a.finalScore)[0];
-  const avgScore =
-    candidates.length > 0
-      ? candidates.reduce((sum, c) => sum + c.finalScore, 0) / candidates.length
-      : 0;
-  const strongMatchCount = candidates.filter((c) => c.finalScore >= 80).length;
-  const requiredSkillCount = skills.filter((s) => s.priority === 'required').length;
-
   // Drawer states
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerSkill, setDrawerSkill] = useState('Angular');
@@ -1058,10 +1006,9 @@ function AnalysisResultsPage() {
       <div className="results-header-banner">
         <div>
           <span className="eyebrow">RECRUITMENT INTELLIGENCE DOSSIER</span>
-          <h1>{demoAnalysis.jobTitle}</h1>
+          <h1>Senior Full Stack Engineer</h1>
           <p>
-            {demoAnalysis.jobDescriptionFileName} · <b>{candidates.length}</b> Candidates Evaluated ·
-            Completed Sep 12, 2026
+            Full_Stack_Developer_JD.pdf · <b>18</b> Candidates Evaluated · Completed Sep 12, 2026
           </p>
         </div>
         <div className="results-head-actions">
@@ -1086,24 +1033,22 @@ function AnalysisResultsPage() {
       <div className="results-stats-row">
         <div className="stat-card">
           <span className="stat-label">Candidate Pool</span>
-          <div className="stat-number">{candidates.length}</div>
+          <div className="stat-number">18</div>
           <small className="stat-sub">Parsed & evaluated</small>
         </div>
         <div className="stat-card">
           <span className="stat-label">Top Match Score</span>
-          <div className="stat-number text-primary">{topCandidate.finalScore.toFixed(1)}%</div>
-          <small className="stat-sub">
-            {topCandidate.name} (#{topCandidate.rank})
-          </small>
+          <div className="stat-number text-primary">94.0%</div>
+          <small className="stat-sub">Rahul Sharma (#1)</small>
         </div>
         <div className="stat-card">
           <span className="stat-label">Pool Average Match</span>
-          <div className="stat-number">{avgScore.toFixed(1)}%</div>
-          <small className="stat-sub">Across {requiredSkillCount} required skills</small>
+          <div className="stat-number">82.6%</div>
+          <small className="stat-sub">Across 5 required skills</small>
         </div>
         <div className="stat-card">
           <span className="stat-label">Strong Matches</span>
-          <div className="stat-number text-success">{strongMatchCount}</div>
+          <div className="stat-number text-success">6</div>
           <small className="stat-sub">Scores ≥ 80% with dual fit</small>
         </div>
       </div>
@@ -1155,13 +1100,13 @@ function AnalysisResultsPage() {
                   <small>{c.title}</small>
                 </div>
                 <div className="why-score-pill">
-                  <b>{c.finalScore.toFixed(1)}%</b>
+                  <b>{c.finalScore !== undefined ? `${c.finalScore.toFixed(1)}%` : '—'}</b>
                 </div>
               </div>
 
               <div className="why-dual-scores">
-                <span className="dual-chip">Semantic: <b>{c.semanticScore}%</b></span>
-                <span className="dual-chip">Keywords: <b>{c.keywordScore}%</b></span>
+                <span className="dual-chip">Semantic: <b>{c.semanticScore ?? 0}%</b></span>
+                <span className="dual-chip">Keywords: <b>{c.keywordScore ?? 0}%</b></span>
                 <span className="dual-chip">Exp: <b>{c.experienceYears} yrs</b></span>
               </div>
 
@@ -1206,7 +1151,7 @@ function AnalysisResultsPage() {
         <div className="section-head-bar">
           <div>
             <h2>Complete Candidate Pool Rankings</h2>
-            <p>Dual semantic and keyword evaluations across all {candidates.length} applicant resumes.</p>
+            <p>Dual semantic and keyword evaluations across all 18 applicant resumes.</p>
           </div>
           <button
             type="button"
@@ -1273,7 +1218,7 @@ function AnalysisResultsPage() {
                     )}
                   </td>
                   <td className="text-right">
-                    <b className="final-score-text">{c.finalScore.toFixed(1)}%</b>
+                    <b className="final-score-text">{c.finalScore !== undefined ? `${c.finalScore.toFixed(1)}%` : '—'}</b>
                   </td>
                   <td className="text-right">
                     <button
@@ -1316,7 +1261,7 @@ function AnalysisResultsPage() {
       />
 
       {/* Recruiter Intelligence Chatbot */}
-      <RecruiterChatbot candidates={candidates} jobTitle={demoAnalysis.jobTitle} />
+      <RecruiterChatbot candidates={candidates} />
     </div>
   );
 }
@@ -1331,14 +1276,8 @@ function CandidatesPage() {
   const [tierFilter, setTierFilter] = useState<'all' | 'strong' | 'good' | 'review'>('all');
   const [skillFilter, setSkillFilter] = useState('all');
   const [verifFilter, setVerifFilter] = useState('all');
-  const [cgpaMin, setCgpaMin] = useState(0);
-  const [internshipsMin, setInternshipsMin] = useState(0);
-  const [expMin, setExpMin] = useState(0);
-  const [projectsMin, setProjectsMin] = useState(0);
-  const [coverageMin, setCoverageMin] = useState(0);
-  const [sortBy, setSortBy] = useState<
-    'rank' | 'score' | 'semantic' | 'keyword' | 'exp' | 'cgpa' | 'relevantProjects' | 'coverage'
-  >('rank');
+  const [sortBy, setSortBy] = useState<'rank' | 'score' | 'semantic' | 'keyword' | 'exp'>('rank');
+
   // Multi-select for side-by-side comparison
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
@@ -1365,9 +1304,10 @@ function CandidatesPage() {
         if (!matchesQuery) return false;
 
         // Tier filter
-        if (tierFilter === 'strong' && c.finalScore < 80) return false;
-        if (tierFilter === 'good' && (c.finalScore < 70 || c.finalScore >= 80)) return false;
-        if (tierFilter === 'review' && c.finalScore >= 70) return false;
+        const score = c.finalScore ?? 0;
+        if (tierFilter === 'strong' && score < 80) return false;
+        if (tierFilter === 'good' && (score < 70 || score >= 80)) return false;
+        if (tierFilter === 'review' && score >= 70) return false;
 
         // Skill filter
         if (skillFilter !== 'all' && !c.matchedSkills.includes(skillFilter)) return false;
@@ -1376,51 +1316,16 @@ function CandidatesPage() {
         if (verifFilter === 'verified' && c.verificationAlerts.length > 0) return false;
         if (verifFilter === 'review' && c.verificationAlerts.length === 0) return false;
 
-        // Numeric threshold filters (recruiter-grade narrowing)
-        if (cgpaMin > 0 && c.cgpa < cgpaMin) return false;
-        if (internshipsMin > 0 && c.totalInternships < internshipsMin) return false;
-        if (expMin > 0 && c.relevantExperienceYears < expMin) return false;
-        if (projectsMin > 0 && c.relevantProjectsCount < projectsMin) return false;
-        const coverage = c.requiredSkillsTotal > 0 ? c.requiredSkillsMatched / c.requiredSkillsTotal : 0;
-        if (coverageMin > 0 && coverage < coverageMin / 100) return false;
-
         return true;
       })
       .sort((a, b) => {
-        const coverageA = a.requiredSkillsTotal > 0 ? a.requiredSkillsMatched / a.requiredSkillsTotal : 0;
-        const coverageB = b.requiredSkillsTotal > 0 ? b.requiredSkillsMatched / b.requiredSkillsTotal : 0;
-        if (sortBy === 'score') return b.finalScore - a.finalScore;
-        if (sortBy === 'semantic') return b.semanticScore - a.semanticScore;
-        if (sortBy === 'keyword') return b.keywordScore - a.keywordScore;
-        if (sortBy === 'exp') return b.relevantExperienceYears - a.relevantExperienceYears;
-        if (sortBy === 'cgpa') return b.cgpa - a.cgpa;
-        if (sortBy === 'relevantProjects') return b.relevantProjectsCount - a.relevantProjectsCount;
-        if (sortBy === 'coverage') return coverageB - coverageA;
+        if (sortBy === 'score') return (b.finalScore ?? 0) - (a.finalScore ?? 0);
+        if (sortBy === 'semantic') return (b.semanticScore ?? 0) - (a.semanticScore ?? 0);
+        if (sortBy === 'keyword') return (b.keywordScore ?? 0) - (a.keywordScore ?? 0);
+        if (sortBy === 'exp') return b.experienceYears - a.experienceYears;
         return a.rank - b.rank;
       });
-  }, [candidates, searchQuery, tierFilter, skillFilter, verifFilter, cgpaMin, internshipsMin, expMin, projectsMin, coverageMin, sortBy]);
-
-  const activeFiltersCount =
-    (tierFilter !== 'all' ? 1 : 0) +
-    (skillFilter !== 'all' ? 1 : 0) +
-    (verifFilter !== 'all' ? 1 : 0) +
-    (cgpaMin > 0 ? 1 : 0) +
-    (internshipsMin > 0 ? 1 : 0) +
-    (expMin > 0 ? 1 : 0) +
-    (projectsMin > 0 ? 1 : 0) +
-    (coverageMin > 0 ? 1 : 0);
-
-  const resetFilters = () => {
-    setTierFilter('all');
-    setSkillFilter('all');
-    setVerifFilter('all');
-    setCgpaMin(0);
-    setInternshipsMin(0);
-    setExpMin(0);
-    setProjectsMin(0);
-    setCoverageMin(0);
-    setSearchQuery('');
-  };
+  }, [candidates, searchQuery, tierFilter, skillFilter, verifFilter, sortBy]);
 
   const candidateA = candidates.find((c) => c.id === selectedIds[0]) || candidates[0];
   const candidateB = candidates.find((c) => c.id === selectedIds[1]) || candidates[1];
@@ -1431,10 +1336,7 @@ function CandidatesPage() {
         <div>
           <span className="eyebrow">APPLICANT POOL</span>
           <h1>Candidate Pool Intelligence</h1>
-          <p>
-            Search, filter, and inspect all {candidates.length} evaluated profiles with dual score
-            validation.
-          </p>
+          <p>Search, filter, and inspect all 18 evaluated profiles with dual score validation.</p>
         </div>
 
         {selectedIds.length === 2 && (
@@ -1510,78 +1412,8 @@ function CandidatesPage() {
             <option value="score">Sort by Final Score</option>
             <option value="semantic">Sort by Semantic Match</option>
             <option value="keyword">Sort by Keyword Match</option>
-            <option value="cgpa">Sort by CGPA</option>
-            <option value="exp">Sort by Relevant Experience</option>
-            <option value="relevantProjects">Sort by Relevant Projects</option>
-            <option value="coverage">Sort by Required Skill Coverage</option>
+            <option value="exp">Sort by Experience</option>
           </select>
-
-          <select
-            value={cgpaMin}
-            onChange={(e) => setCgpaMin(Number(e.target.value))}
-            className="filter-select"
-            aria-label="Filter by Minimum CGPA"
-          >
-            <option value={0}>Min CGPA: Any</option>
-            <option value={6}>CGPA ≥ 6.0</option>
-            <option value={7}>CGPA ≥ 7.0</option>
-            <option value={8}>CGPA ≥ 8.0</option>
-            <option value={9}>CGPA ≥ 9.0</option>
-          </select>
-
-          <select
-            value={internshipsMin}
-            onChange={(e) => setInternshipsMin(Number(e.target.value))}
-            className="filter-select"
-            aria-label="Filter by Minimum Internships"
-          >
-            <option value={0}>Internships: Any</option>
-            <option value={1}>1+ Internship</option>
-            <option value={2}>2+ Internships</option>
-          </select>
-
-          <select
-            value={expMin}
-            onChange={(e) => setExpMin(Number(e.target.value))}
-            className="filter-select"
-            aria-label="Filter by Minimum Relevant Experience"
-          >
-            <option value={0}>Relevant Exp: Any</option>
-            <option value={1}>1+ yr relevant</option>
-            <option value={2}>2+ yrs relevant</option>
-            <option value={3}>3+ yrs relevant</option>
-          </select>
-
-          <select
-            value={projectsMin}
-            onChange={(e) => setProjectsMin(Number(e.target.value))}
-            className="filter-select"
-            aria-label="Filter by Minimum Relevant Projects"
-          >
-            <option value={0}>Relevant Projects: Any</option>
-            <option value={1}>1+ relevant</option>
-            <option value={2}>2+ relevant</option>
-            <option value={3}>3+ relevant</option>
-          </select>
-
-          <select
-            value={coverageMin}
-            onChange={(e) => setCoverageMin(Number(e.target.value))}
-            className="filter-select"
-            aria-label="Filter by Required Skill Coverage"
-          >
-            <option value={0}>Req. Skill Coverage: Any</option>
-            <option value={40}>≥ 40% coverage</option>
-            <option value={60}>≥ 60% coverage</option>
-            <option value={80}>≥ 80% coverage</option>
-            <option value={100}>100% coverage</option>
-          </select>
-
-          {activeFiltersCount > 0 && (
-            <button type="button" className="btn btn-text" onClick={resetFilters}>
-              Reset filters ({activeFiltersCount})
-            </button>
-          )}
         </div>
       </div>
 
@@ -1598,10 +1430,7 @@ function CandidatesPage() {
               <th scope="col">Evidenced Skills</th>
               <th scope="col" className="text-center">Semantic</th>
               <th scope="col" className="text-center">Keywords</th>
-              <th scope="col" className="text-center">CGPA</th>
-              <th scope="col" className="text-center">Relevant Exp</th>
-              <th scope="col" className="text-center">Rel. Projects</th>
-              <th scope="col" className="text-center">Req. Coverage</th>
+              <th scope="col" className="text-center">Experience</th>
               <th scope="col" className="text-center">Verification</th>
               <th scope="col" className="text-right">Match Score</th>
               <th scope="col" className="text-right">Action</th>
@@ -1650,18 +1479,7 @@ function CandidatesPage() {
                     <span className="score-subtle">{c.keywordScore}%</span>
                   </td>
                   <td className="text-center">
-                    <span className="score-subtle">{c.cgpa.toFixed(1)}</span>
-                  </td>
-                  <td className="text-center">
-                    <span className="exp-subtle">{c.relevantExperienceYears} yrs</span>
-                  </td>
-                  <td className="text-center">
-                    <span className="exp-subtle">{c.relevantProjectsCount}</span>
-                  </td>
-                  <td className="text-center">
-                    <span className="exp-subtle">
-                      {Math.round((c.requiredSkillsMatched / Math.max(1, c.requiredSkillsTotal)) * 100)}%
-                    </span>
+                    <span className="exp-subtle">{c.experienceYears} yrs</span>
                   </td>
                   <td className="text-center">
                     {c.verificationAlerts.length > 0 ? (
@@ -1675,7 +1493,7 @@ function CandidatesPage() {
                     )}
                   </td>
                   <td className="text-right">
-                    <b className="final-score-text">{c.finalScore.toFixed(1)}%</b>
+                    <b className="final-score-text">{c.finalScore !== undefined ? `${c.finalScore.toFixed(1)}%` : '—'}</b>
                   </td>
                   <td className="text-right">
                     <button
@@ -1701,7 +1519,84 @@ function CandidatesPage() {
         candidateB={candidateB}
       />
 
-      <RecruiterChatbot candidates={candidates} jobTitle={demoAnalysis.jobTitle} />
+      <RecruiterChatbot candidates={candidates} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ANALYSIS & JOB OPENINGS PAGES
+// ---------------------------------------------------------------------------
+function AnalysisJobOpeningsPage() {
+  const navigate = useNavigate();
+  return (
+    <div className="analysis-job-openings-view">
+      <JobOpeningsTable
+        onSelectJob={(job) => navigate(`/analysis/${job.id}/candidates`)}
+      />
+      <RecruiterChatbot candidates={initialCandidates} />
+    </div>
+  );
+}
+
+function JobCandidatesRoutePage() {
+  const { jobId } = useParams();
+  const navigate = useNavigate();
+  const [job, setJob] = useState<JobOpening | null>(null);
+  const [loading, setLoading] = useState(true);
+  const searchParams = new URLSearchParams(window.location.search);
+  const initialOpenUpload = searchParams.get('upload') === 'true';
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchJob = async () => {
+      if (!jobId) return;
+      const data = await store.getJobOpening(jobId);
+      if (isMounted) {
+        setJob(data);
+        setLoading(false);
+      }
+    };
+    fetchJob();
+    return () => {
+      isMounted = false;
+    };
+  }, [jobId]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+        <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
+        <p className="text-sm font-medium">Loading candidate applications...</p>
+      </div>
+    );
+  }
+
+  if (!job) {
+    return (
+      <div className="py-20 text-center text-slate-400">
+        <Briefcase className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+        <h3 className="text-base font-semibold text-white">Job Opening Not Found</h3>
+        <p className="text-xs text-slate-500 mt-1">The requested job opening could not be located.</p>
+        <button
+          onClick={() => navigate('/analysis')}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-500 transition-colors"
+        >
+          Return to Job Openings
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="job-candidates-page-view">
+      <JobCandidatesView
+        job={job}
+        initialOpenUpload={initialOpenUpload}
+        onBack={() => navigate('/analysis')}
+        onSelectCandidate={(candidate) => navigate(`/candidate/${candidate.id}`)}
+      />
+      <RecruiterChatbot candidates={initialCandidates} />
     </div>
   );
 }
@@ -1711,12 +1606,49 @@ function CandidatesPage() {
 // ---------------------------------------------------------------------------
 function CandidateDetailsPage() {
   const { id } = useParams();
-  const candidate = initialCandidates.find((c) => c.id === id) || initialCandidates[0];
+  const navigate = useNavigate();
+  const [candidate, setCandidate] = useState<Candidate | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCand = async () => {
+      if (!id) return;
+      let stored: Candidate | null = null;
+      try {
+        stored = await getBackendCandidate(id);
+      } catch (err) {
+        stored = await store.getCandidate(id);
+      }
+      if (isMounted) {
+        if (stored) {
+          setCandidate(stored);
+        } else {
+          const fallback = initialCandidates.find((c) => c.id === id) || initialCandidates[0];
+          setCandidate(fallback);
+        }
+        setLoading(false);
+      }
+    };
+    fetchCand();
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
+
+  if (loading || !candidate) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+        <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
+        <p className="text-sm font-medium">Loading candidate dossier...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="candidate-details-route-view">
-      <CandidateDetailView candidate={candidate} />
-      <RecruiterChatbot candidates={initialCandidates} jobTitle={demoAnalysis.jobTitle} />
+      <CandidateDetailView candidate={candidate} onBack={() => navigate(-1)} />
+      <RecruiterChatbot candidates={initialCandidates} />
     </div>
   );
 }
@@ -1753,18 +1685,18 @@ function SettingsPage() {
           <div>
             <h3>Design Theme</h3>
             <p>
-              NEXORA uses an enterprise light theme built for readable, high-contrast recruiter workflows.
+              NEXORA uses an enterprise dark/light theme built for readable, high-contrast recruiter workflows.
             </p>
           </div>
           <span className="status-badge-inline status-strong">
-            <Check size={13} /> Light Theme Active
+            <Check size={13} /> Theme Active
           </span>
         </div>
 
         <div className="settings-panel-card">
           <div>
             <h3>Application Information</h3>
-            <p>NEXORA Candidate Intelligence · v1.0.0 · Dual Matching Engine Active</p>
+            <p>NEXORA Candidate Intelligence · v1.2.0 · Resume Fraud & Timeline Verification Active</p>
           </div>
           <button type="button" className="btn btn-danger" onClick={signOut}>
             <LogOut size={15} /> Sign Out
@@ -1802,21 +1734,24 @@ function App() {
     () => ({
       user,
       signIn: async () => {
-        if (!firebaseEnabled) {
-          toast.error(
-            'Google Sign-In is not configured. Add Firebase keys to .env.local — or use the demo workspace.',
-            { duration: 5000 }
-          );
-          return;
+        try {
+          if (firebaseEnabled) {
+            const firebaseUser = await firebaseAuth.signIn();
+            if (firebaseUser) {
+              setUser({
+                name: firebaseUser.displayName || 'Alex Recruiter',
+                email: firebaseUser.email || 'alex@nexora.app',
+              });
+              toast.success('Signed in via Google');
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn('Firebase sign in failed, fallback to demo', err);
         }
-        const firebaseUser = await firebaseAuth.signIn();
-        if (firebaseUser) {
-          setUser({
-            name: firebaseUser.displayName || 'Recruiter',
-            email: firebaseUser.email || '',
-          });
-          toast.success('Signed in via Google');
-        }
+        // Fallback demo sign-in
+        setUser({ name: 'Alex Recruiter', email: 'alex@nexora.app' });
+        toast.success('Signed in to Nexora Workspace');
       },
       signInDemo: () => {
         setUser({ name: 'Alex Recruiter', email: 'alex@nexora.app' });
@@ -1841,6 +1776,8 @@ function App() {
             <Routes>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/analysis" element={<AnalysisJobOpeningsPage />} />
+              <Route path="/analysis/:jobId/candidates" element={<JobCandidatesRoutePage />} />
               <Route path="/analysis/new" element={<NewAnalysisPage />} />
               <Route path="/analysis/:id/loading" element={<LoadingPage />} />
               <Route path="/analysis/:id/results" element={<AnalysisResultsPage />} />
