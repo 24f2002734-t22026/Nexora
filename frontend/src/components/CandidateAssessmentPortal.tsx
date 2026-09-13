@@ -14,6 +14,7 @@ import {
   Unlock,
   Calendar,
   Mail,
+  Eye,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { candidates as defaultCandidates } from '../data';
@@ -185,6 +186,32 @@ SUMMARY: 4/4 Tests Passed. Ready for final submission.`);
         </div>
       </header>
 
+      {/* Recruiter Preview Mode Banner */}
+      {unlockedForPreview && !submittedSuccess && (
+        <div
+          style={{
+            backgroundColor: '#09090b',
+            color: '#F4F4F5',
+            padding: '8px 24px',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid #27272a',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Eye size={14} style={{ color: '#F59E0B' }} />
+            <span>
+              <strong>Recruiter Preview Mode:</strong> You are testing the candidate exam environment. You can test code execution or simulate candidate submission below.
+            </span>
+          </div>
+          <span style={{ fontSize: '11px', color: '#A1A1AA', backgroundColor: '#27272a', padding: '2px 8px', borderRadius: '4px' }}>
+            Scheduled: {candidate.assessment?.scheduledAt ? new Date(candidate.assessment.scheduledAt).toLocaleString() : 'Upcoming'}
+          </span>
+        </div>
+      )}
+
       {/* Time-Gated Lock Screen (If scheduled for future date and not yet unlocked) */}
       {isLocked ? (
         <div style={{ maxWidth: '640px', margin: '60px auto', padding: '36px 32px', backgroundColor: '#FFFFFF', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
@@ -353,8 +380,15 @@ SUMMARY: 4/4 Tests Passed. Ready for final submission.`);
                   onClick={handleSubmit}
                   disabled={isSubmitting || submittedSuccess}
                   style={{ fontSize: '12px', padding: '5px 14px' }}
+                  title={unlockedForPreview ? 'Simulate candidate submission to test recruiter evaluation flow' : 'Submit final assessment'}
                 >
-                  <Send size={12} /> {submittedSuccess ? 'Submitted ✓' : isSubmitting ? 'Submitting...' : 'Submit Assessment'}
+                  <Send size={12} /> {
+                    submittedSuccess
+                      ? (unlockedForPreview ? 'Simulated Submission Recorded ✓' : 'Submitted ✓')
+                      : isSubmitting
+                        ? (unlockedForPreview ? 'Simulating...' : 'Submitting...')
+                        : (unlockedForPreview ? 'Simulate Candidate Submission' : 'Submit Assessment')
+                  }
                 </button>
               </div>
             </div>
