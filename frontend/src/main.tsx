@@ -54,6 +54,7 @@ import { HiringSimulator } from './components/HiringSimulator';
 import { RecruiterChatbot } from './components/RecruiterChatbot';
 import { JobOpeningsTable } from './components/JobOpeningsTable';
 import { JobCandidatesView } from './components/JobCandidatesView';
+import { CandidateAssessmentPortal } from './components/CandidateAssessmentPortal';
 import { store } from './services/store';
 import { getBackendCandidate } from './services/api';
 import type { Candidate, JobSkill, JobOpening } from './types';
@@ -1795,29 +1796,36 @@ function App() {
   return (
     <AuthContext.Provider value={authValue}>
       <BrowserRouter>
-        {user ? (
-          <AppShell>
-            <Routes>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/analysis" element={<AnalysisJobOpeningsPage />} />
-              <Route path="/analysis/:jobId/candidates" element={<JobCandidatesRoutePage />} />
-              <Route path="/analysis/new" element={<NewAnalysisPage />} />
-              <Route path="/analysis/:id/loading" element={<LoadingPage />} />
-              <Route path="/analysis/:id/results" element={<AnalysisResultsPage />} />
-              <Route path="/candidates" element={<AnalysisJobOpeningsPage />} />
-              <Route path="/candidate/:id" element={<CandidateDetailsPage />} />
-              {/* Analytics route redirects to Dashboard where analytics is integrated */}
-              <Route path="/analytics" element={<DashboardPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="*" element={<DashboardPage />} />
-            </Routes>
-          </AppShell>
-        ) : (
-          <Routes>
+        <Routes>
+          {/* Candidate Assessment Portal (Accessible directly via invite link) */}
+          <Route path="/assessment/:id" element={<CandidateAssessmentPortal />} />
+
+          {user ? (
+            <Route
+              path="*"
+              element={
+                <AppShell>
+                  <Routes>
+                    <Route path="/" element={<DashboardPage />} />
+                    <Route path="/dashboard" element={<DashboardPage />} />
+                    <Route path="/analysis" element={<AnalysisJobOpeningsPage />} />
+                    <Route path="/analysis/:jobId/candidates" element={<JobCandidatesRoutePage />} />
+                    <Route path="/analysis/new" element={<NewAnalysisPage />} />
+                    <Route path="/analysis/:id/loading" element={<LoadingPage />} />
+                    <Route path="/analysis/:id/results" element={<AnalysisResultsPage />} />
+                    <Route path="/candidates" element={<AnalysisJobOpeningsPage />} />
+                    <Route path="/candidate/:id" element={<CandidateDetailsPage />} />
+                    <Route path="/analytics" element={<DashboardPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="*" element={<DashboardPage />} />
+                  </Routes>
+                </AppShell>
+              }
+            />
+          ) : (
             <Route path="*" element={<LoginPage />} />
-          </Routes>
-        )}
+          )}
+        </Routes>
       </BrowserRouter>
       <Toaster theme="light" position="top-right" richColors />
     </AuthContext.Provider>

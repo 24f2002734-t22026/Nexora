@@ -293,38 +293,6 @@ Requirements & Qualifications:
               </span>
             </div>
 
-            {/* Quick Sample JD Buttons */}
-            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
-              <span style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '8px' }}>
-                Or test with a sample Job Description document:
-              </span>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => handleLoadSampleJD('fullstack')}
-                  style={{ borderRadius: '0px', fontSize: '11px' }}
-                >
-                  <FileText size={13} /> Full Stack Engineer JD (PDF)
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => handleLoadSampleJD('ml')}
-                  style={{ borderRadius: '0px', fontSize: '11px' }}
-                >
-                  <FileText size={13} /> Staff ML Engineer JD (DOCX)
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => handleLoadSampleJD('product')}
-                  style={{ borderRadius: '0px', fontSize: '11px' }}
-                >
-                  <FileText size={13} /> Lead Product Designer JD (PDF)
-                </button>
-              </div>
-            </div>
           </div>
         )}
 
