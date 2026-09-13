@@ -6,6 +6,7 @@ import {
   FileText, 
   Users, 
   Eye, 
+  Mail,
   Download, 
   CheckCircle2, 
   AlertTriangle, 
@@ -19,6 +20,12 @@ import {
 } from 'lucide-react';
 import type { JobOpening, Candidate } from '../types';
 import { store } from '../services/store';
+import {
+  createCandidateAssessment,
+  getBackendCandidate,
+  listBackendCandidates,
+  shortlistCandidate,
+} from '../services/api';
 import { ResumeViewerModal } from './ResumeViewerModal';
 
 interface JobCandidatesViewProps {
@@ -38,6 +45,8 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'flagged' | 'pending'>('all');
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   
   // Upload modal state
   const [showUploadModal, setShowUploadModal] = useState(initialOpenUpload);
@@ -52,10 +61,13 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
   const loadCandidates = async () => {
     setLoading(true);
     try {
-      const data = await store.getCandidatesForJob(job.id);
-      setCandidates(data);
+      const backendData = await listBackendCandidates();
+      const matchingJob = backendData.filter((candidate) => candidate.jobId === job.id);
+      setCandidates(matchingJob.length > 0 ? matchingJob : backendData);
     } catch (err) {
       console.error('Error loading candidates for job:', err);
+      const data = await store.getCandidatesForJob(job.id);
+      setCandidates(data);
     } finally {
       setLoading(false);
     }
@@ -139,6 +151,41 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
     return true;
   });
 
+  const replaceCandidate = (updated: Candidate) => {
+    setCandidates((prev) => prev.map((candidate) => (candidate.id === updated.id ? updated : candidate)));
+  };
+
+  const handleShortlist = async (candidate: Candidate) => {
+    setActionLoadingId(candidate.id);
+    setActionError(null);
+    try {
+      const result = await shortlistCandidate(candidate.id);
+      replaceCandidate(result.candidate);
+    } catch (err) {
+      console.error('Failed to shortlist candidate:', err);
+      setActionError('Could not shortlist candidate. Please retry.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleCreateAssessment = async (candidate: Candidate) => {
+    setActionLoadingId(candidate.id);
+    setActionError(null);
+    try {
+      const assessment = await createCandidateAssessment(candidate.id);
+      const refreshed = await getBackendCandidate(candidate.id);
+      replaceCandidate({ ...refreshed, assessment, assessmentStatus: assessment.status === 'pending' ? 'invited' : refreshed.assessmentStatus });
+    } catch (err) {
+      console.error('Failed to create assessment:', err);
+      setActionError('Could not create assessment invite. Please retry.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const stageLabel = (stage?: string) => (stage || 'SCREENING').replace(/_/g, ' ');
+
   return (
     <div className="candidates-view">
       {/* Top Breadcrumb & Actions Bar */}
@@ -195,6 +242,12 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
           </select>
         </div>
       </div>
+
+      {actionError && (
+        <div style={{ padding: '10px 14px', marginBottom: '12px', backgroundColor: 'var(--danger-bg)', color: 'var(--danger-text)', border: '1px solid var(--danger-border)', fontSize: '12px' }}>
+          {actionError}
+        </div>
+      )}
 
       {/* Candidates Table (Exact layout as Candidates section) */}
       <div className="rankings-table-wrap">
@@ -321,6 +374,47 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
                         >
                           <FileText size={13} /> Resume
                         </button>
+
+                        {(candidate.currentStage || 'SCREENING') === 'SCREENING' && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            disabled={actionLoadingId === candidate.id}
+                            onClick={() => handleShortlist(candidate)}
+                          >
+                            {actionLoadingId === candidate.id ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                            Shortlist
+                          </button>
+                        )}
+
+                        {candidate.currentStage === 'SHORTLISTED' && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            disabled={actionLoadingId === candidate.id}
+                            onClick={() => handleCreateAssessment(candidate)}
+                          >
+                            {actionLoadingId === candidate.id ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} />}
+                            Assessment
+                          </button>
+                        )}
+
+                        {candidate.currentStage && candidate.currentStage !== 'SCREENING' && candidate.currentStage !== 'SHORTLISTED' && (
+                          <span className="status-badge-inline status-strong" title={candidate.currentStage}>
+                            {stageLabel(candidate.currentStage)}
+                          </span>
+                        )}
+
+                        {candidate.assessment?.inviteUrl && (
+                          <a
+                            className="btn btn-secondary btn-sm"
+                            href={candidate.assessment.inviteUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Invite <ChevronRight size={13} />
+                          </a>
+                        )}
 
                         <button
                           type="button"

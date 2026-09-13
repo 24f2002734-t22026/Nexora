@@ -1,0 +1,220 @@
+"""Nexora-owned pipeline transitions and mywork orchestration."""
+
+from dataclasses import asdict
+from datetime import datetime, timezone
+
+from mywork.evidence.builder.candidate import build_candidate_evidence
+from mywork.recruiter_ai.agent.orchestrator import RecruiterAIOrchestrator
+from mywork.recruiter_ai.schemas.requests import ChatRequest as NexaChatRequest
+from mywork.recruiter_ai.tools.service import NexaToolService
+
+from ..db import Database
+from ..models import AssessmentLink, CandidateState, HRDecision
+from ..providers.fixture import SQLiteNexoraProvider
+from .codeassess import CodeAssessIntegration
+from .email import EmailService
+
+
+class PipelineError(Exception):
+    pass
+
+
+class PipelineService:
+    def __init__(
+        self,
+        database: Database,
+        provider: SQLiteNexoraProvider,
+        codeassess: CodeAssessIntegration,
+        email: EmailService,
+        assessment_title: str,
+        interviewer_id: int,
+    ) -> None:
+        self.database = database
+        self.provider = provider
+        self.codeassess = codeassess
+        self.email = email
+        self.assessment_title = assessment_title
+        self.interviewer_id = interviewer_id
+        self.tools = NexaToolService(provider, codeassess.service)
+        self.orchestrator = RecruiterAIOrchestrator(provider, self.tools)
+
+    def candidate(self, candidate_id: str) -> CandidateState:
+        candidate = self.database.get_candidate(candidate_id)
+        if candidate is None:
+            raise PipelineError(f"Candidate {candidate_id} not found")
+        return candidate
+
+    def rankings(self):
+        return self.tools.get_rankings().data
+
+    def shortlist(self, candidate_id: str) -> tuple[CandidateState, bool]:
+        candidate = self.candidate(candidate_id)
+        if candidate.current_stage == "SCREENING":
+            updated = self.database.update_stage(candidate_id, "SHORTLISTED")
+            return updated, True
+        if candidate.current_stage in {
+            "SHORTLISTED",
+            "ASSESSMENT_PENDING",
+            "ASSESSMENT_SENT",
+            "ASSESSMENT_STARTED",
+            "ASSESSMENT_SUBMITTED",
+            "ASSESSMENT_EVALUATED",
+            "HR_REVIEW",
+            "HR_SELECTED",
+        }:
+            return candidate, False
+        raise PipelineError(f"Cannot shortlist candidate in {candidate.current_stage}")
+
+    def create_assessment(self, candidate_id: str, question_text: str, language: str):
+        candidate = self.candidate(candidate_id)
+
+        # Idempotency: if valid invite already exists, return existing link without duplicate creation
+        existing_link = self.database.get_assessment_link(candidate_id)
+        if existing_link is not None and candidate.current_stage in {
+            "SHORTLISTED",
+            "ASSESSMENT_PENDING",
+            "ASSESSMENT_SENT",
+            "ASSESSMENT_STARTED",
+            "ASSESSMENT_SUBMITTED",
+            "ASSESSMENT_EVALUATED",
+            "HR_REVIEW",
+            "HR_SELECTED",
+        }:
+            return candidate, existing_link.assessment_id, existing_link, existing_link.invite_url
+
+        if candidate.current_stage not in {"SHORTLISTED", "ASSESSMENT_PENDING"}:
+            raise PipelineError(
+                f"Candidate must be shortlisted before assessment creation; current stage is {candidate.current_stage}"
+            )
+
+        previous_stage = candidate.current_stage
+        self.database.update_stage(candidate_id, "ASSESSMENT_PENDING")
+        try:
+            assessment, invite, invite_url = self.codeassess.create_candidate_assessment(
+                candidate_id=candidate.candidate_id,
+                candidate_name=candidate.name,
+                candidate_email=candidate.email,
+                interviewer_id=self.interviewer_id,
+                title=self.assessment_title,
+                question_text=question_text,
+                language=language,
+            )
+            now = datetime.now(timezone.utc).isoformat()
+            link = AssessmentLink(
+                candidate_id=candidate_id,
+                assessment_id=assessment.id,
+                invite_id=invite.id,
+                token=invite.token,
+                status=invite.status,
+                invite_url=invite_url,
+                profile_id=candidate.candidate_id,
+                created_at=now,
+                updated_at=now,
+            )
+            self.database.save_assessment_link(link)
+            self.email.send_assessment_invitation(
+                recipient=candidate.email,
+                candidate_name=candidate.name,
+                job_title=self.assessment_title,
+                assessment_url=invite_url,
+            )
+            updated = self.database.update_stage(candidate_id, "ASSESSMENT_SENT")
+            return updated, assessment, invite, invite_url
+        except Exception as exc:
+            # Revert stage safely to avoid partial/corrupt mappings
+            self.database.update_stage(candidate_id, previous_stage)
+            raise PipelineError(f"Assessment creation failed: {exc}") from exc
+
+    def assessment_status(self, candidate_id: str):
+        self.candidate(candidate_id)
+        result = self.codeassess.service.get_candidate_assessment_status(candidate_id)
+        stage = _stage_for_assessment_status(result.status)
+        if stage and self.database.get_candidate(candidate_id).current_stage not in {
+            "HR_REVIEW",
+            "HR_SELECTED",
+            "REJECTED",
+        }:
+            self.database.update_stage(candidate_id, stage)
+
+        # Keep assessment_link status synchronized
+        link = self.database.get_assessment_link(candidate_id)
+        if link is not None:
+            self.database.save_assessment_link(
+                AssessmentLink(
+                    candidate_id=link.candidate_id,
+                    assessment_id=link.assessment_id,
+                    invite_id=link.invite_id,
+                    token=link.token,
+                    status=result.status,
+                    invite_url=link.invite_url,
+                    profile_id=link.profile_id or candidate_id,
+                    created_at=link.created_at,
+                    updated_at=datetime.now(timezone.utc).isoformat(),
+                )
+            )
+        return result
+
+    def assessment_result(self, candidate_id: str):
+        self.candidate(candidate_id)
+        result = self.codeassess.get_result(candidate_id)
+        if result.status == "no_assessment":
+            raise PipelineError(f"No assessment found for candidate {candidate_id}")
+        if result.status == "evaluation_available":
+            cand = self.database.get_candidate(candidate_id)
+            if cand and cand.current_stage not in {"HR_REVIEW", "HR_SELECTED", "REJECTED"}:
+                self.database.update_stage(candidate_id, "ASSESSMENT_EVALUATED")
+        return result
+
+    def evidence_comparison(self, candidate_id: str):
+        candidate = self.candidate(candidate_id)
+        result = self.codeassess.get_result(candidate_id)
+        evidence = build_candidate_evidence(
+            candidate_id=candidate.candidate_id,
+            candidate_name=candidate.name,
+            resume=self.provider.get_candidate_resume_data(candidate_id),
+            ranking=self.provider.get_candidate_ranking(candidate_id),
+            assessment=result,
+            document_id=candidate.resume_ref,
+        )
+        if candidate.current_stage == "ASSESSMENT_EVALUATED":
+            self.database.update_stage(candidate_id, "HR_REVIEW")
+        return evidence
+
+    def hr_decision(self, candidate_id: str, decision: str, reason: str | None):
+        candidate = self.candidate(candidate_id)
+        normalized = decision.upper()
+        if normalized not in {"HR_SELECTED", "REJECTED"}:
+            raise PipelineError("decision must be HR_SELECTED or REJECTED")
+        if candidate.current_stage == "ASSESSMENT_EVALUATED":
+            self.database.update_stage(candidate_id, "HR_REVIEW")
+        elif candidate.current_stage != "HR_REVIEW":
+            raise PipelineError("Candidate must be evaluated before HR decision")
+        updated = self.database.update_stage(candidate_id, normalized)
+        now = datetime.now(timezone.utc).isoformat()
+        self.database.save_hr_decision(
+            HRDecision(
+                candidate_id=candidate_id,
+                decision=normalized,
+                reason=reason,
+                decided_at=now,
+            )
+        )
+        return updated
+
+    def chat(self, message: str, candidate_ids: list[str], conversation_id: str | None):
+        return self.orchestrator.handle(
+            NexaChatRequest(
+                message=message,
+                candidate_ids=candidate_ids,
+                conversation_id=conversation_id,
+            )
+        )
+
+
+def _stage_for_assessment_status(status: str) -> str | None:
+    return {
+        "invited": "ASSESSMENT_SENT",
+        "in_progress": "ASSESSMENT_STARTED",
+        "pending_evaluation": "ASSESSMENT_SUBMITTED",
+        "evaluation_available": "ASSESSMENT_EVALUATED",
+    }.get(status)

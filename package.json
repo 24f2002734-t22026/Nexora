@@ -1,14 +1,21 @@
 {
-  "name": "nexora-workspace",
+  "name": "nexora",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "scripts": {
-    "dev": "npm --prefix frontend run dev",
-    "build": "npm --prefix frontend run build",
-    "lint": "npm --prefix frontend run lint"
+  "scripts": { "dev": "vite", "start": "vite", "build": "tsc -b && vite build", "lint": "tsc -b --noEmit" },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "axios": "latest",
+    "firebase": "latest",
+    "lucide-react": "latest",
+    "motion": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-dropzone": "latest",
+    "react-router-dom": "latest",
+    "recharts": "latest",
+    "sonner": "latest"
   },
-  "devDependencies": {
-    "typescript": "latest"
-  }
+  "devDependencies": { "typescript": "latest", "vite": "latest", "@types/react": "latest", "@types/react-dom": "latest" }
 }

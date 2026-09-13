@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   Mail,
@@ -22,7 +22,13 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import type { Candidate, SkillEvidence } from '../types';
+import type { AssessmentResult, Candidate, CandidateEvidence, SkillEvidence } from '../types';
+import {
+  getAssessmentResult,
+  getAssessmentStatus,
+  getCandidateEvidence,
+  submitHrDecision,
+} from '../services/api';
 import { ResumeViewerModal } from './ResumeViewerModal';
 
 interface CandidateDetailViewProps {
@@ -31,12 +37,72 @@ interface CandidateDetailViewProps {
   onBack?: () => void;
 }
 
-export function CandidateDetailView({ candidate: c, onCompareWithAnother, onBack }: CandidateDetailViewProps) {
+export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }: CandidateDetailViewProps) {
   const navigate = useNavigate();
+  const [localCandidate, setLocalCandidate] = useState(candidate);
   const [skillFilter, setSkillFilter] = useState<'all' | 'matched' | 'missing'>('all');
   const [showResumeViewer, setShowResumeViewer] = useState(false);
+  const [assessment, setAssessment] = useState<AssessmentResult | null>(candidate.assessmentResult || null);
+  const [evidence, setEvidence] = useState<CandidateEvidence | null>(candidate.evidence || null);
+  const [downstreamLoading, setDownstreamLoading] = useState(false);
+  const [downstreamError, setDownstreamError] = useState<string | null>(null);
+  const [hrLoading, setHrLoading] = useState(false);
+  const c = localCandidate;
 
   const isPending = c.analysisPending;
+
+  useEffect(() => {
+    setLocalCandidate(candidate);
+    setAssessment(candidate.assessmentResult || null);
+    setEvidence(candidate.evidence || null);
+  }, [candidate]);
+
+  const refreshDownstream = async () => {
+    if (!c.currentStage || c.currentStage === 'SCREENING' || c.currentStage === 'SHORTLISTED') {
+      return;
+    }
+    setDownstreamLoading(true);
+    setDownstreamError(null);
+    try {
+      const status = await getAssessmentStatus(c.id);
+      setAssessment(status);
+      setLocalCandidate((prev) => ({ ...prev, assessmentStatus: status.status }));
+      if (status.status === 'evaluation_available') {
+        const [result, candidateEvidence] = await Promise.all([
+          getAssessmentResult(c.id),
+          getCandidateEvidence(c.id),
+        ]);
+        setAssessment(result);
+        setEvidence(candidateEvidence);
+        setLocalCandidate((prev) => ({
+          ...prev,
+          assessmentStatus: result.status,
+          assessmentResult: result,
+          evidence: candidateEvidence,
+          currentStage: prev.currentStage === 'ASSESSMENT_EVALUATED' ? 'HR_REVIEW' : prev.currentStage,
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to load downstream assessment data:', err);
+      setDownstreamError('Assessment data is currently unavailable.');
+    } finally {
+      setDownstreamLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void refreshDownstream();
+  }, [c.id, c.currentStage]);
+
+  useEffect(() => {
+    if (!c.currentStage || !['ASSESSMENT_SENT', 'ASSESSMENT_STARTED', 'ASSESSMENT_SUBMITTED'].includes(c.currentStage)) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      void refreshDownstream();
+    }, 8000);
+    return () => window.clearInterval(timer);
+  }, [c.id, c.currentStage]);
 
   const handleBack = () => {
     if (onBack) {
@@ -109,6 +175,26 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother, onBack
 
   const alerts = c.verificationAlerts || [];
   const isSuspicious = alerts.length > 0 || c.verificationStatus === 'review_recommended';
+  const latestEvaluation = assessment?.submissions.find((submission) => submission.evaluation)?.evaluation;
+
+  const handleHrDecision = async (decision: 'HR_SELECTED' | 'REJECTED') => {
+    const reason = window.prompt(
+      decision === 'HR_SELECTED' ? 'Reason for selecting this candidate?' : 'Reason for rejecting this candidate?',
+      latestEvaluation?.explanation || ''
+    );
+    if (reason === null) return;
+    setHrLoading(true);
+    setDownstreamError(null);
+    try {
+      const updated = await submitHrDecision(c.id, decision, reason);
+      setLocalCandidate((prev) => ({ ...prev, ...updated }));
+    } catch (err) {
+      console.error('Failed to submit HR decision:', err);
+      setDownstreamError('Could not submit HR decision. Candidate must be evaluated and ready for HR review.');
+    } finally {
+      setHrLoading(false);
+    }
+  };
 
   return (
     <div className="candidate-detail-container">
@@ -142,6 +228,100 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother, onBack
             <FileText size={15} /> Export Dossier
           </button>
         </div>
+      </div>
+
+      <div className="content-card" style={{ marginBottom: '16px' }}>
+        <div className="card-heading-bar">
+          <div>
+            <h2>Assessment & HR Review</h2>
+            <p>Current stage: <b>{(c.currentStage || 'SCREENING').replace(/_/g, ' ')}</b></p>
+          </div>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => void refreshDownstream()}
+            disabled={downstreamLoading}
+          >
+            {downstreamLoading ? <Clock size={13} /> : <FileText size={13} />} Refresh
+          </button>
+        </div>
+
+        {downstreamError && (
+          <div className="alert-item" style={{ marginBottom: '12px' }}>
+            <b className="alert-title">Downstream action failed</b>
+            <p className="alert-message">{downstreamError}</p>
+          </div>
+        )}
+
+        <div className="skill-ratio-grid">
+          <div className="ratio-card">
+            <span>Assessment Status</span>
+            <b>{assessment?.status?.replace(/_/g, ' ') || c.assessmentStatus?.replace(/_/g, ' ') || 'Not sent'}</b>
+          </div>
+          <div className="ratio-card">
+            <span>Overall Assessment</span>
+            <b>{assessment?.overallScore != null ? `${assessment.overallScore.toFixed(1)}%` : 'Pending'}</b>
+          </div>
+          <div className="ratio-card">
+            <span>Invite</span>
+            {c.assessment?.inviteUrl ? (
+              <a href={c.assessment.inviteUrl} target="_blank" rel="noreferrer">Open invite</a>
+            ) : (
+              <b>{assessment?.invite?.token || c.assessment?.token || 'Unavailable'}</b>
+            )}
+          </div>
+        </div>
+
+        {latestEvaluation && (
+          <div className="match-breakdown-box" style={{ marginTop: '14px' }}>
+            <div className="breakdown-row">
+              <div className="breakdown-label"><span>Correctness</span><b>{latestEvaluation.correctnessScore ?? 'N/A'}%</b></div>
+              <div className="breakdown-label"><span>Efficiency</span><b>{latestEvaluation.efficiencyScore ?? 'N/A'}%</b></div>
+              <div className="breakdown-label"><span>Code Quality</span><b>{latestEvaluation.codeQualityScore ?? 'N/A'}%</b></div>
+              <small className="breakdown-desc">
+                Complexity: {latestEvaluation.timeComplexity || 'N/A'} time, {latestEvaluation.spaceComplexity || 'N/A'} space
+              </small>
+            </div>
+            {latestEvaluation.strengths.length > 0 && <p><b>Strengths:</b> {latestEvaluation.strengths.join(', ')}</p>}
+            {latestEvaluation.detectedIssues.length > 0 && <p><b>Issues:</b> {latestEvaluation.detectedIssues.join(', ')}</p>}
+            {latestEvaluation.improvements.length > 0 && <p><b>Improvements:</b> {latestEvaluation.improvements.join(', ')}</p>}
+          </div>
+        )}
+
+        {evidence && (
+          <div className="projects-timeline" style={{ marginTop: '14px' }}>
+            {[...evidence.assessmentEvidence, ...evidence.comparisonEvidence].slice(0, 6).map((item) => (
+              <div key={item.evidenceId} className="project-card">
+                <div className="project-top">
+                  <h4>{item.claim}</h4>
+                  <span className="project-period">{item.source}</span>
+                </div>
+                <p className="project-desc">{item.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(c.currentStage === 'HR_REVIEW' || c.currentStage === 'ASSESSMENT_EVALUATED') && (
+          <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={hrLoading}
+              onClick={() => void handleHrDecision('HR_SELECTED')}
+            >
+              <CheckCircle2 size={14} /> Select for HR
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={hrLoading}
+              onClick={() => void handleHrDecision('REJECTED')}
+            >
+              <AlertCircle size={14} /> Reject
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main Three-Column Layout */}
@@ -282,8 +462,8 @@ export function CandidateDetailView({ candidate: c, onCompareWithAnother, onBack
                     <b>{edu.degree}</b>
                     <div className="edu-school">{edu.institution}</div>
                     <div className="edu-year">
-                      {edu.year}
-                      {edu.details && !edu.year.includes(edu.details) ? ` · ${edu.details}` : ''}
+                      {edu.year || ''}
+                      {edu.details && (!edu.year || !edu.year.includes(edu.details)) ? (edu.year ? ` · ${edu.details}` : edu.details) : ''}
                     </div>
                   </div>
                 ))

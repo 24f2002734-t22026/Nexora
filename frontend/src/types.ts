@@ -99,22 +99,29 @@ export interface CandidateProject {
   title: string;
   description: string;
   technologies: string[];
+  relevanceToJd?: 'High' | 'Moderate' | 'Low';
   period?: string;
+  contribution?: string;
 }
 
 export interface CandidateExperience {
-  company: string;
+  company?: string;
+  organization?: string;
   role: string;
   period: string;
+  isInternship?: boolean;
   isOverlap?: boolean;
-  highlights: string[];
+  relevanceToJd?: 'High' | 'Moderate' | 'Low';
+  technologies?: string[];
+  highlights?: string[];
 }
 
 export interface CandidateEducation {
   degree: string;
   institution: string;
-  year: string;
-  cgpa?: string;
+  year?: string;
+  cgpa?: number | string;
+  cgpaScale?: number;
   details?: string;
 }
 
@@ -139,6 +146,120 @@ export interface ScoreBreakdown {
   totalScore: number;         // Max 100
 }
 
+export type CandidateStage =
+  | 'SCREENING'
+  | 'SHORTLISTED'
+  | 'ASSESSMENT_PENDING'
+  | 'ASSESSMENT_SENT'
+  | 'ASSESSMENT_STARTED'
+  | 'ASSESSMENT_SUBMITTED'
+  | 'ASSESSMENT_EVALUATED'
+  | 'HR_REVIEW'
+  | 'HR_SELECTED'
+  | 'REJECTED';
+
+export type AssessmentStatus =
+  | 'no_assessment'
+  | 'invited'
+  | 'in_progress'
+  | 'pending_evaluation'
+  | 'evaluation_available'
+  | 'unknown';
+
+export interface AssessmentInvite {
+  candidateId: string;
+  assessmentId: number;
+  inviteId: number;
+  token: string;
+  status: string;
+  inviteUrl: string | null;
+}
+
+export interface AssessmentEvaluation {
+  id?: number | null;
+  submissionId?: number | null;
+  correctnessScore?: number | null;
+  efficiencyScore?: number | null;
+  codeQualityScore?: number | null;
+  overallScore?: number | null;
+  isCorrect?: boolean | null;
+  timeComplexity?: string | null;
+  spaceComplexity?: string | null;
+  strengths: string[];
+  detectedIssues: string[];
+  improvements: string[];
+  explanation?: string | null;
+}
+
+export interface AssessmentSubmission {
+  id: number;
+  inviteId: number;
+  questionId: number;
+  code: string;
+  language: string;
+  status: string;
+  stdout?: string | null;
+  stderr?: string | null;
+  executionTimeMs?: number | null;
+  evaluation?: AssessmentEvaluation | null;
+}
+
+export interface AssessmentResult {
+  profileId: string;
+  status: AssessmentStatus;
+  overallScore?: number | null;
+  submissions: AssessmentSubmission[];
+  invite?: {
+    id: number;
+    testId: number;
+    candidateName: string;
+    candidateEmail: string;
+    profileId?: string | null;
+    token: string;
+    status: string;
+  } | null;
+  assessment?: {
+    id: number;
+    title: string;
+    description?: string | null;
+    interviewerId: number;
+  } | null;
+  questions: {
+    id: number;
+    testId: number;
+    questionText: string;
+    language: string;
+  }[];
+}
+
+export interface EvidenceItem {
+  evidenceId: string;
+  source: string;
+  category: string;
+  claim: string;
+  value: string;
+  score?: number | null;
+  confidence?: number | null;
+  provenance?: Record<string, any>;
+}
+
+export interface CandidateEvidence {
+  candidateId: string;
+  candidateName: string;
+  resumeEvidence: EvidenceItem[];
+  rankingEvidence?: Record<string, any> | null;
+  assessmentEvidence: EvidenceItem[];
+  comparisonEvidence: EvidenceItem[];
+  evidenceReferences: string[];
+  missingEvidence?: Record<string, any>[];
+  overallConfidence?: number | null;
+}
+
+export interface HRDecision {
+  decision: 'HR_SELECTED' | 'REJECTED';
+  reason?: string | null;
+}
+
 export interface Candidate {
   id: string;
   jobId?: string;
@@ -153,6 +274,11 @@ export interface Candidate {
   finalScore?: number;
   semanticScore?: number;
   keywordScore?: number;
+  semanticScoreWeight?: number;
+  keywordScoreWeight?: number;
+  experienceScoreWeight?: number;
+  projectScoreWeight?: number;
+  educationScoreWeight?: number;
   scoreBreakdown?: ScoreBreakdown;
   analysisPending?: boolean;
 
@@ -166,6 +292,16 @@ export interface Candidate {
   explanation: string;
   experience: string;
   experienceYears: number;
+
+  // Candidate dimension details
+  cgpa?: number;
+  cgpaScale?: number;
+  totalInternships?: number;
+  relevantInternships?: number;
+  relevantExperienceYears?: number;
+  totalProjects?: number;
+  relevantProjectsCount?: number;
+
   education: CandidateEducation[];
   projects: CandidateProject[];
   workHistory: CandidateExperience[];
@@ -173,10 +309,26 @@ export interface Candidate {
   externalEvidence?: ExternalEvidence;
   verificationAlerts: VerificationAlert[];
   verificationStatus: VerificationStatus;
+  currentStage?: CandidateStage;
+  assessment?: AssessmentInvite | null;
+  assessmentStatus?: AssessmentStatus;
+  assessmentResult?: AssessmentResult | null;
+  evidence?: CandidateEvidence | null;
+  hrDecision?: HRDecision | null;
   
   // Resume File
   resume?: ResumeDocument;
   appliedAt?: string;
+  claimsVsEvidence?: { claim: string; evidenceFound: string; strength: 'Strong' | 'Moderate' | 'Limited' | 'Not Found' }[];
+  evidenceIntegrity?: {
+    coveragePercent: number;
+    skillEvidenceLevel: 'Strong' | 'Moderate' | 'Limited';
+    projectEvidenceLevel: 'Strong' | 'Moderate' | 'Limited';
+    experienceEvidenceLevel: 'Strong' | 'Moderate' | 'Limited';
+    claimSpecificity: 'High' | 'Moderate' | 'Limited';
+    timelineConsistency: 'Verified' | 'Review Recommended';
+    aiWritingSignal: 'Low' | 'Moderate' | 'Insufficient Evidence';
+  };
 }
 
 export interface JobOpening {
@@ -208,6 +360,16 @@ export interface Analysis {
   createdAt: string;
   requiredSkills: JobSkill[];
   candidates: Candidate[];
+}
+
+export interface HiringWeights {
+  frontend: number; // 0-100
+  backend: number; // 0-100
+  cloud: number; // 0-100
+  experience: number; // 0-100
+  projects: number; // 0-100
+  requiredSkills: number; // 0-100
+  education: number; // 0-100
 }
 
 export interface ChatMessage {

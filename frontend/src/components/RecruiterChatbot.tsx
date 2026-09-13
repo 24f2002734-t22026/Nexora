@@ -372,7 +372,7 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={isRecording ? 'Listening... speaking will transcribe here in real-time' : 'Type or click mic to speak with Moonshine STT...'}
+                placeholder={isRecording ? 'Listening... speaking will transcribe here in real-time' : 'Ask Nexora about your candidates...'}
                 aria-label="Ask Recruiter Assistant"
                 style={{ 
                   borderColor: isRecording ? '#ef4444' : undefined,

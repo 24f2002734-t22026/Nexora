@@ -54,6 +54,7 @@ import { RecruiterChatbot } from './components/RecruiterChatbot';
 import { JobOpeningsTable } from './components/JobOpeningsTable';
 import { JobCandidatesView } from './components/JobCandidatesView';
 import { store } from './services/store';
+import { getBackendCandidate } from './services/api';
 import type { Candidate, JobSkill, JobOpening } from './types';
 import './styles.css';
 
@@ -1613,7 +1614,12 @@ function CandidateDetailsPage() {
     let isMounted = true;
     const fetchCand = async () => {
       if (!id) return;
-      const stored = await store.getCandidate(id);
+      let stored: Candidate | null = null;
+      try {
+        stored = await getBackendCandidate(id);
+      } catch (err) {
+        stored = await store.getCandidate(id);
+      }
       if (isMounted) {
         if (stored) {
           setCandidate(stored);

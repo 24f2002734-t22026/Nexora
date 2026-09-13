@@ -427,11 +427,13 @@ export const ResumeViewerModal: React.FC<ResumeViewerModalProps> = ({ candidate,
                           <small style={{ color: '#64748b' }}>{w.period}</small>
                         </div>
                         <span style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>{w.company}</span>
-                        <ul style={{ paddingLeft: '16px', margin: '4px 0 0', fontSize: '11px', color: '#64748b' }}>
-                          {w.highlights.map((h, hIdx) => (
-                            <li key={hIdx}>{h}</li>
-                          ))}
-                        </ul>
+                        {w.highlights && w.highlights.length > 0 && (
+                          <ul style={{ paddingLeft: '16px', margin: '4px 0 0', fontSize: '11px', color: '#64748b' }}>
+                            {w.highlights.map((h, hIdx) => (
+                              <li key={hIdx}>{h}</li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -508,6 +510,6 @@ SKILLS:
 ${c.matchedSkills?.join(', ') || 'Pending analysis'}
 
 WORK EXPERIENCE:
-${c.workHistory?.map((w) => `${w.role} at ${w.company} (${w.period})\n- ${w.highlights.join('\n- ')}`).join('\n\n') || 'N/A'}
+${c.workHistory?.map((w) => `${w.role} at ${w.company} (${w.period})${w.highlights && w.highlights.length > 0 ? `\n- ${w.highlights.join('\n- ')}` : ''}`).join('\n\n') || 'N/A'}
 `;
 }

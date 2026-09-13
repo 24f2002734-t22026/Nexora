@@ -30,3 +30,5 @@ test_artifacts/
 *.pdf
 
 
+node_modules
+*.db
