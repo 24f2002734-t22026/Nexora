@@ -220,21 +220,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
             {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
 
-          <div className="topbar-context">
-            <span className="topbar-crumb">Workspace / Candidate Intelligence</span>
-            <h2 className="topbar-title">Senior Full Stack Engineer</h2>
-          </div>
-
-          <div className="topbar-actions">
-            <div
-              className="topbar-search-bar"
-              onClick={() => navigate('/analysis')}
-              title="Search job openings & candidates"
-            >
-              <Search size={15} />
-              <span>Search job openings or skills...</span>
-            </div>
-
+          <div className="topbar-actions" style={{ marginLeft: 'auto' }}>
             <button
               type="button"
               className="icon-button"
