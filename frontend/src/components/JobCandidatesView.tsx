@@ -266,11 +266,11 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
           <thead>
             <tr>
               <th scope="col" style={{ width: 50 }} className="text-center">#</th>
-              <th scope="col" style={{ minWidth: 240 }}>Candidate</th>
-              <th scope="col" style={{ minWidth: 200 }}>Uploaded Resume</th>
-              <th scope="col" className="text-center" style={{ width: 140 }}>Match Score</th>
-              <th scope="col" className="text-center" style={{ width: 160 }}>Verification</th>
-              <th scope="col" className="text-right" style={{ width: 180 }}>Action</th>
+              <th scope="col" style={{ minWidth: 220 }}>Candidate</th>
+              <th scope="col" style={{ minWidth: 190 }}>Uploaded Resume</th>
+              <th scope="col" className="text-center" style={{ width: 120 }}>Match Score</th>
+              <th scope="col" className="text-center" style={{ width: 150 }}>Verification</th>
+              <th scope="col" className="text-right" style={{ minWidth: 290, width: 310 }}>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -285,14 +285,8 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
             ) : filteredCandidates.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center py-8">
-                  <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-                    <Users size={28} style={{ color: 'var(--text-light)', margin: '0 auto 8px' }} />
-                    <b style={{ display: 'block', fontSize: '14px', color: 'var(--text-primary)' }}>
-                      No Candidates Found
-                    </b>
-                    <small style={{ color: 'var(--text-muted)' }}>
-                      {searchQuery ? 'Try clearing your search query.' : 'Click "Upload Candidate Resume" above to attach resumes to this job.'}
-                    </small>
+                  <div style={{ padding: '36px', color: 'var(--text-muted)' }}>
+                    No candidates found matching your filter criteria.
                   </div>
                 </td>
               </tr>
@@ -374,14 +368,15 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
                       )}
                     </td>
 
-                    {/* 6. Action: Stages & Stage Actions */}
-                    <td className="text-right">
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', flexWrap: 'wrap' }}>
+                    {/* 6. Action: Stages & Stage Actions (Clean Horizontal Row) */}
+                    <td className="text-right" style={{ whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', flexWrap: 'nowrap' }}>
                         <button
                           type="button"
                           className="btn btn-secondary btn-sm"
                           onClick={() => setViewingResumeCandidate(candidate)}
                           title="View Resume Document"
+                          style={{ whiteSpace: 'nowrap' }}
                         >
                           <FileText size={13} /> Resume
                         </button>
@@ -391,6 +386,7 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
                             type="button"
                             className="btn btn-secondary btn-sm"
                             onClick={() => handleShortlist(candidate)}
+                            style={{ whiteSpace: 'nowrap' }}
                           >
                             <CheckCircle2 size={13} /> Shortlist
                           </button>
@@ -401,6 +397,7 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
                             type="button"
                             className="btn btn-primary btn-sm"
                             onClick={() => openScheduleModal(candidate)}
+                            style={{ whiteSpace: 'nowrap' }}
                           >
                             <Mail size={13} /> Schedule & Invite
                           </button>
@@ -413,6 +410,7 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
                             target="_blank"
                             rel="noreferrer"
                             title="Open Candidate Assessment Test Link"
+                            style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}
                           >
                             <Clock size={12} style={{ color: 'var(--warning)' }} />
                             <span>Test Link</span>
@@ -425,7 +423,7 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
                             type="button"
                             className="btn btn-secondary btn-sm"
                             onClick={() => onSelectCandidate(candidate)}
-                            style={{ borderColor: 'var(--success-border)', backgroundColor: 'var(--success-bg)', color: 'var(--success-text)' }}
+                            style={{ borderColor: 'var(--success-border)', backgroundColor: 'var(--success-bg)', color: 'var(--success-text)', whiteSpace: 'nowrap' }}
                           >
                             <CheckCircle2 size={12} />
                             <span>Review (94%)</span>
@@ -433,13 +431,13 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
                         )}
 
                         {candidate.currentStage === 'HR_SELECTED' && (
-                          <span className="status-badge-inline status-strong">
+                          <span className="status-badge-inline status-strong" style={{ whiteSpace: 'nowrap' }}>
                             ✓ HR Selected
                           </span>
                         )}
 
                         {candidate.currentStage === 'REJECTED' && (
-                          <span className="status-badge-inline" style={{ color: 'var(--danger-text)' }}>
+                          <span className="status-badge-inline" style={{ color: 'var(--danger-text)', whiteSpace: 'nowrap' }}>
                             Rejected
                           </span>
                         )}
@@ -448,6 +446,7 @@ export const JobCandidatesView: React.FC<JobCandidatesViewProps> = ({
                           type="button"
                           className="btn btn-secondary btn-sm"
                           onClick={() => onSelectCandidate(candidate)}
+                          style={{ whiteSpace: 'nowrap' }}
                         >
                           Profile <ChevronRight size={13} />
                         </button>
