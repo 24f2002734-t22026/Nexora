@@ -112,15 +112,15 @@ export interface CandidateExperience {
   isInternship?: boolean;
   isOverlap?: boolean;
   relevanceToJd?: 'High' | 'Moderate' | 'Low';
-  technologies: string[];
-  highlights: string[];
+  technologies?: string[];
+  highlights?: string[];
 }
 
 export interface CandidateEducation {
   degree: string;
   institution: string;
-  year: string;
-  cgpa?: number;
+  year?: string;
+  cgpa?: number | string;
   cgpaScale?: number;
   details?: string;
 }

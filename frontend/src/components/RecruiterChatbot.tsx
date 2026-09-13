@@ -11,6 +11,8 @@ import {
   Loader2 
 } from 'lucide-react';
 import { toast } from 'sonner';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { chatWithRecruiter } from '../services/api';
 import type { Candidate, ChatMessage } from '../types';
 
@@ -329,7 +331,15 @@ export function RecruiterChatbot({ candidates }: RecruiterChatbotProps) {
                       {m.role === 'assistant' ? <Sparkles size={13} /> : <UserIcon size={13} />}
                     </div>
                     <div className="chat-bubble">
-                      <div className="chat-bubble-text">{m.content}</div>
+                      <div className="chat-bubble-text">
+                        {m.role === 'assistant' ? (
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {m.content}
+                          </ReactMarkdown>
+                        ) : (
+                          m.content
+                        )}
+                      </div>
                       <span className="chat-timestamp">{m.timestamp}</span>
                     </div>
                   </div>

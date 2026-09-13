@@ -462,8 +462,8 @@ export function CandidateDetailView({ candidate, onCompareWithAnother, onBack }:
                     <b>{edu.degree}</b>
                     <div className="edu-school">{edu.institution}</div>
                     <div className="edu-year">
-                      {edu.year}
-                      {edu.details && !edu.year.includes(edu.details) ? ` · ${edu.details}` : ''}
+                      {edu.year || ''}
+                      {edu.details && (!edu.year || !edu.year.includes(edu.details)) ? (edu.year ? ` · ${edu.details}` : edu.details) : ''}
                     </div>
                   </div>
                 ))
