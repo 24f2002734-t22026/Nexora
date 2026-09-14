@@ -13,9 +13,44 @@ from ..schemas import (
     RankingResponse,
     ShortlistResponse,
 )
-from ..services.pipeline import PipelineError
+from ..services.pipeline import PipelineError, _email_description
 
 router = APIRouter(prefix="/api", tags=["candidates"])
+
+
+@router.get("/candidates/{candidate_id}/assessment/generate")
+def generate_assessment(
+    candidate_id: str,
+    request: Request,
+    _: RecruiterIdentity = Depends(get_current_recruiter),
+):
+    try:
+        payload = request.json() if request.json() else {}
+        job_description = payload if isinstance(payload, dict) else {}
+        generated = _pipeline(request).generate_assessment(candidate_id, job_description)
+        return {
+            "candidate_id": generated.candidate_id,
+            "job_title": generated.job_title,
+            "title": generated.definition.title,
+            "description": generated.definition.description,
+            "duration_minutes": generated.definition.duration_minutes,
+            "questions": [
+                {
+                    "question_text": q.question_text,
+                    "language": q.language,
+                    "difficulty": q.difficulty,
+                    "type": q.type,
+                    "skills": q.skills,
+                    "source_requirements": q.source_requirements,
+                    "estimate_minutes": q.estimate_minutes,
+                }
+                for q in generated.questions_used
+            ],
+        }
+    except PipelineError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Assessment generation failed") from exc
 
 
 def _pipeline(request: Request):
@@ -105,7 +140,65 @@ def create_assessment(
         code = 404 if "not found" in str(exc) else 409
         raise HTTPException(status_code=code, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=502, detail="Assessment service unavailable") from exc
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=502, detail=f"Assessment service unavailable: {exc}") from exc
+
+
+@router.post("/candidates/{candidate_id}/assessment/send")
+def send_generated_assessment(
+    candidate_id: str,
+    payload: dict,
+    request: Request,
+    _: RecruiterIdentity = Depends(get_current_recruiter),
+):
+    try:
+        job_description = payload if isinstance(payload, dict) else {}
+        if not isinstance(job_description, dict):
+            job_description = {}
+        generated = _pipeline(request).generate_assessment(candidate_id, job_description)
+        candidate, assessment_id, link, invite_url, sent, link_obj = _pipeline(request).create_generated_assessment(
+            candidate_id, generated
+        )
+        assessment_id = assessment_id if isinstance(assessment_id, int) else getattr(assessment_id, "id", 0)
+        return {
+            "candidate_id": candidate_id,
+            "assessment_id": assessment_id,
+            "invite_id": getattr(link, "id", link.invite_id if hasattr(link, "invite_id") else None),
+            "token": getattr(link, "token", link.invite.token if hasattr(link, "invite") else None),
+            "status": getattr(link, "status", link.invite.status if hasattr(link, "invite") else None),
+            "invite_url": invite_url,
+            "assessment": {
+                "title": generated.definition.title,
+                "description": generated.definition.description,
+                "duration_minutes": generated.definition.duration_minutes,
+                "questions": [
+                    {
+                        "question_text": q.question_text,
+                        "language": q.language,
+                        "difficulty": q.difficulty,
+                        "type": q.type,
+                        "skills": q.skills,
+                        "source_requirements": q.source_requirements,
+                        "estimate_minutes": q.estimate_minutes,
+                    }
+                    for q in generated.questions_used
+                ],
+            },
+            "email_sent": sent.sent if sent is not None else False,
+            "email": _email_description(sent) if sent is not None else None,
+            "stage": candidate.current_stage,
+        }
+    except PipelineError as exc:
+        code = 404 if "not found" in str(exc) else 409
+        raise HTTPException(status_code=code, detail=str(exc)) from exc
+    except PipelineError as exc:
+        code = 404 if "not found" in str(exc) else 409
+        raise HTTPException(status_code=code, detail=str(exc)) from exc
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=502, detail=f"Assessment send failed: {exc}") from exc
 
 
 @router.get("/candidates/{candidate_id}/assessment/status")
@@ -158,9 +251,13 @@ def hr_decision(
     _: RecruiterIdentity = Depends(get_current_recruiter),
 ):
     try:
-        return _candidate_response(
-            _pipeline(request).hr_decision(candidate_id, payload.decision, payload.reason)
+        updated, sent_email = _pipeline(request).hr_decision(
+            candidate_id, payload.decision, payload.reason
         )
+        response = _candidate_response(updated)
+        response_dict = response.model_dump()
+        response_dict["round3_email"] = _email_description(sent_email) if sent_email is not None else None
+        return response_dict
     except PipelineError as exc:
         code = 404 if "not found" in str(exc) else 409
         raise HTTPException(status_code=code, detail=str(exc)) from exc

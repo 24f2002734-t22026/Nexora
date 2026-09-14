@@ -12,7 +12,8 @@ from ..db import Database
 from ..models import AssessmentLink, CandidateState, HRDecision
 from ..providers.fixture import SQLiteNexoraProvider
 from .codeassess import CodeAssessIntegration
-from .email import EmailService
+from .email import EmailMessage, EmailService
+from .oa_generator import GeneratedAssessment, generate_assessment
 
 
 class PipelineError(Exception):
@@ -37,6 +38,9 @@ class PipelineService:
         self.interviewer_id = interviewer_id
         self.tools = NexaToolService(provider, codeassess.service)
         self.orchestrator = RecruiterAIOrchestrator(provider, self.tools)
+        # Duplicate-request guards so recruiters can safely retry actions.
+        self._pending_assessments: set[str] = set()
+        self._sent_round3_emails: set[str] = set()
 
     def candidate(self, candidate_id: str) -> CandidateState:
         candidate = self.database.get_candidate(candidate_id)
@@ -125,6 +129,108 @@ class PipelineService:
             self.database.update_stage(candidate_id, previous_stage)
             raise PipelineError(f"Assessment creation failed: {exc}") from exc
 
+    def generate_assessment(self, candidate_id: str, job_description: dict) -> GeneratedAssessment:
+        """Generate a personalized assessment from the JD and candidate resume.
+
+        This is intentionally separate from assessment *creation* so the recruiter UI
+        can show generated questions before anything is sent to CodeAssess.
+        """
+        candidate = self.candidate(candidate_id)
+        if candidate.current_stage != "SHORTLISTED":
+            raise PipelineError(
+                "Candidate must be shortlisted before assessment generation"
+            )
+        provider_candidate = self.provider.get_candidate(candidate_id)
+        if provider_candidate is None:
+            raise PipelineError(f"Candidate data unavailable for {candidate_id}")
+        return generate_assessment(job_description, provider_candidate, use_llm=True)
+
+    def create_generated_assessment(self, candidate_id: str, generated: GeneratedAssessment) -> tuple:
+        """Persist a previously generated assessment into CodeAssess and email it.
+
+        This pathway is used after the recruiter approves the generated questions.
+        It is idempotent: if a valid invite already exists for the candidate, it is
+        returned rather than creating a duplicate CodeAssess assessment.
+        """
+        candidate = self.candidate(candidate_id)
+
+        existing_link = self.database.get_assessment_link(candidate_id)
+        if existing_link is not None and candidate.current_stage in {
+            "SHORTLISTED",
+            "ASSESSMENT_PENDING",
+            "ASSESSMENT_SENT",
+            "ASSESSMENT_STARTED",
+            "ASSESSMENT_SUBMITTED",
+            "ASSESSMENT_EVALUATED",
+            "HR_REVIEW",
+            "HR_SELECTED",
+        }:
+            return (
+                candidate,
+                existing_link.assessment_id,
+                existing_link,
+                existing_link.invite_url,
+                False,
+                existing_link,
+            )
+
+        if candidate.current_stage not in {"SHORTLISTED", "ASSESSMENT_PENDING"}:
+            raise PipelineError(
+                f"Candidate must be shortlisted before assessment creation; current stage is {candidate.current_stage}"
+            )
+
+        if candidate_id in self._pending_assessments:
+            raise PipelineError("An assessment is already being processed for this candidate")
+
+        self._pending_assessments.add(candidate_id)
+        previous_stage = candidate.current_stage
+        try:
+            self.database.update_stage(candidate_id, "ASSESSMENT_PENDING")
+            assessment, invite, invite_url = self.codeassess.create_candidate_assessment_from_definition(
+                candidate_id=candidate.candidate_id,
+                candidate_name=candidate.name,
+                candidate_email=candidate.email,
+                interviewer_id=self.interviewer_id,
+                title=generated.definition.title,
+                questions=[
+                    {
+                        "question_text": q.question_text,
+                        "language": q.language,
+                        "difficulty": q.difficulty,
+                        "type": q.type,
+                        "skills": list(q.skills),
+                        "source_requirements": list(q.source_requirements),
+                    }
+                    for q in generated.definition.questions
+                ],
+            )
+            now = datetime.now(timezone.utc).isoformat()
+            link = AssessmentLink(
+                candidate_id=candidate_id,
+                assessment_id=assessment.id,
+                invite_id=invite.id,
+                token=invite.token,
+                status=invite.status,
+                invite_url=invite_url,
+                profile_id=candidate.candidate_id,
+                created_at=now,
+                updated_at=now,
+            )
+            self.database.save_assessment_link(link)
+            sent = self.email.send_assessment_invitation(
+                recipient=candidate.email,
+                candidate_name=candidate.name,
+                job_title=self.assessment_title,
+                assessment_url=invite_url,
+            )
+            updated = self.database.update_stage(candidate_id, "ASSESSMENT_SENT")
+            return updated, assessment, invite, invite_url, sent, link
+        except Exception as exc:
+            self.database.update_stage(candidate_id, previous_stage)
+            raise PipelineError(f"Assessment creation failed: {exc}") from exc
+        finally:
+            self._pending_assessments.discard(candidate_id)
+
     def assessment_status(self, candidate_id: str):
         self.candidate(candidate_id)
         result = self.codeassess.service.get_candidate_assessment_status(candidate_id)
@@ -199,7 +305,17 @@ class PipelineService:
                 decided_at=now,
             )
         )
-        return updated
+        if normalized == "HR_SELECTED":
+            updated = self.database.update_stage(candidate_id, "ROUND_3")
+            sent = self.email.send_round3_invitation(
+                recipient=candidate.email,
+                candidate_name=candidate.name,
+                job_title=self.assessment_title,
+                interview_details=None,
+            )
+            self._sent_round3_emails.add(candidate_id)
+            return updated, sent
+        return updated, None
 
     def chat(self, message: str, candidate_ids: list[str], conversation_id: str | None):
         return self.orchestrator.handle(
@@ -218,3 +334,14 @@ def _stage_for_assessment_status(status: str) -> str | None:
         "pending_evaluation": "ASSESSMENT_SUBMITTED",
         "evaluation_available": "ASSESSMENT_EVALUATED",
     }.get(status)
+
+
+def _email_description(email: EmailMessage) -> dict:
+    return {
+        "recipient": email.recipient,
+        "subject": email.subject,
+        "body": email.body,
+        "assessment_url": email.assessment_url,
+        "message_type": email.message_type,
+        "sent": email.sent,
+    }

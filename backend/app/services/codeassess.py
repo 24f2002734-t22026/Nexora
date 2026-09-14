@@ -108,9 +108,15 @@ class MockCodeAssessClient:
             )
         return submission.evaluation
 
-    def seed_submission(self, candidate_id: str, code: str = "def solve(): return 1") -> None:
+    def seed_submission(
+        self, candidate_id: str, code: str = "def solve(): return 1", question_index: int = 0
+    ) -> None:
         invite = next(item for item in self.invites if item.profile_id == candidate_id)
-        question = self.questions[invite.test_id][0]
+        questions = self.questions.get(invite.test_id, [])
+        if not questions:
+            raise RuntimeError(f"No questions found for assessment {invite.test_id}")
+        idx = min(max(question_index, 0), len(questions) - 1)
+        question = questions[idx]
         self.submissions.append(
             SubmissionWithEvaluation(
                 id=self.next_submission_id,
@@ -126,6 +132,15 @@ class MockCodeAssessClient:
             )
         )
         self.next_submission_id += 1
+
+    def seed_submissions_for_candidate(
+        self, candidate_id: str, codes: list[str], question_index: int = 0
+    ) -> list[int]:
+        submission_ids: list[int] = []
+        for code in codes:
+            self.seed_submission(candidate_id, code, question_index)
+            submission_ids.append(self.submissions[-1].id)
+        return submission_ids
 
 
 @dataclass
@@ -144,15 +159,53 @@ class CodeAssessIntegration:
         question_text: str,
         language: str,
     ) -> tuple[AssessmentResponse, InviteResponse, str | None]:
+        """Legacy single-question creation kept for backward compatibility."""
+        return self.create_candidate_assessment_from_definition(
+            candidate_id=candidate_id,
+            candidate_name=candidate_name,
+            candidate_email=candidate_email,
+            interviewer_id=interviewer_id,
+            title=title,
+            questions=[
+                {
+                    "question_text": question_text,
+                    "language": language,
+                    "difficulty": "medium",
+                    "type": "coding",
+                    "skills": [],
+                    "source_requirements": [],
+                }
+            ],
+        )
+
+    def create_candidate_assessment_from_definition(
+        self,
+        candidate_id: str,
+        candidate_name: str,
+        candidate_email: str,
+        interviewer_id: int,
+        title: str,
+        questions: list[dict[str, object]],
+    ) -> tuple[AssessmentResponse, InviteResponse, str | None]:
+        """Create a multi-question assessment from a structured question list.
+
+        Each question is persisted in CodeAssess before the candidate invite is
+        created so that the assessment is not left incomplete.
+        """
         assessment = self.service.create_assessment(
             AssessmentCreateRequest(title=title, interviewer_id=interviewer_id)
         )
-        # CodeAssess owns question persistence; this uses its typed client through
-        # the integration boundary rather than issuing raw HTTP from the backend.
-        self.client.add_question(
-            assessment.id,
-            QuestionCreateRequest(question_text=question_text, language=language),
-        )
+        question_ids: list[int] = []
+        for item in questions:
+            text = str(item.get("question_text", "")).strip()
+            language = str(item.get("language", "python")).strip() or "python"
+            if not text:
+                raise ValueError("Generated question text must not be empty")
+            response = self.client.add_question(
+                assessment.id,
+                QuestionCreateRequest(question_text=text, language=language),
+            )
+            question_ids.append(response.id)
         invite = self.service.create_candidate_invite(
             candidate_id=candidate_id,
             profile_id=candidate_id,

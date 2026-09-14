@@ -6,7 +6,7 @@ from .config import Settings
 from .db import Database
 from .providers.fixture import SQLiteNexoraProvider, seed_fixture_database
 from .services.codeassess import CodeAssessIntegration, build_integration
-from .services.email import LoggingEmailService, build_email_service
+from .services.email import EmailService, LoggingEmailService, build_email_service
 from .services.pipeline import PipelineService
 
 
@@ -15,7 +15,7 @@ class Container:
     database: Database
     provider: SQLiteNexoraProvider
     codeassess: CodeAssessIntegration
-    email: LoggingEmailService
+    email: EmailService
     pipeline: PipelineService
 
 

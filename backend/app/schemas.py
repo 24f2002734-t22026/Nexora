@@ -70,3 +70,35 @@ class HealthResponse(BaseModel):
     status: str
     auth_mode: str
     codeassess_mode: str
+
+
+class AssessmentGenerateResponse(BaseModel):
+    candidate_id: str
+    job_title: str
+    title: str
+    description: str
+    duration_minutes: int
+    questions: list[dict]
+
+
+class AssessmentSendResponse(BaseModel):
+    candidate_id: str
+    assessment_id: int
+    invite_id: int
+    token: str
+    status: str
+    invite_url: str | None
+    assessment: dict
+    email_sent: bool
+    email: dict | None
+    stage: str
+
+
+class HRDecisionResponse(BaseModel):
+    candidate_id: str
+    name: str
+    email: str
+    resume_ref: str | None
+    current_stage: str
+    analysis_id: str
+    round3_email: dict | None
